@@ -86,8 +86,6 @@ def exportData():
 @agriculture_bp.route("/address/select")
 def Address_Select():
     global con
-    # print(con.ping())
-    # pi = con.ping()
     if not con.ping():
         con = pymysql.connect(host='localhost', password=PASSWORD, port=PORT, user=USERNAME, charset='utf8',
                               database=DATABASE)
@@ -103,19 +101,22 @@ def Address_Select():
         id = row[0]
         name = row[1]
 
-        # 创建字典对象，表示每行结果
         row_dict = {
             'id': id,
             'name': name
         }
 
-        # 将每行结果的字典添加到列表中
         rows.append(row_dict)
 
-        # 将结果列表转换为JSON格式
-    json_data = json.dumps(rows)
+    # 构建响应数据
+    response_data = {
+        'code': 200,  # 可根据需要设置不同的状态码
+        'data': rows,
+        'message': 'Success'  # 可根据需要设置不同的消息
+    }
 
-    return json_data
+    # 使用 Flask 的 jsonify 函数将响应数据转换为 JSON 格式并返回
+    return jsonify(response_data)
 
 
 # 返回传感器设备列表（根据地区）
