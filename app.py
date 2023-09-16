@@ -37,7 +37,7 @@ con = pymysql.connect(host='localhost', password=PASSWORD, port=PORT, user=USERN
 agriculture_bp = Blueprint('agriculture', __name__, url_prefix='/agriculture')
 
 
-@agriculture_bp.route('/')
+@agriculture_bp.route('/', methods=['GET'])
 def Hello_World():
     return "欢迎使用农业监控系统"
 
@@ -83,7 +83,7 @@ def exportData():
 
 
 # 返回所有地区列表
-@agriculture_bp.route("/address/select")
+@agriculture_bp.route("/address/select", methods=['GET'])
 def Address_Select():
     global con
     if not con.ping():
@@ -120,7 +120,7 @@ def Address_Select():
 
 
 # 返回传感器设备列表（根据地区）
-@agriculture_bp.route("/device/select")
+@agriculture_bp.route("/device/select", methods=['GET'])
 def Device_Select():
     global con
     if not con.ping():
@@ -161,7 +161,7 @@ def Device_Select():
     return json_data
 
 
-@agriculture_bp.route("/user/deviceList")
+@agriculture_bp.route("/user/deviceList", methods=['GET'])
 def getDeviceList():
     global con
     try:
@@ -514,7 +514,7 @@ class DateTimeEncoder(json.JSONEncoder):
 
 
 # 返回最新的100条历史数据（按传感器设备）
-@agriculture_bp.route("/data/show")
+@agriculture_bp.route("/data/show", methods=['GET'])
 def Data_Base():
     global con
     if not con.ping():
@@ -553,7 +553,7 @@ def Data_Base():
     return json_data
 
 
-@agriculture_bp.route("/camera/select")
+@agriculture_bp.route("/camera/select", methods=['GET'])
 def Camera_Select():
     global con
     if not con.ping():
@@ -591,7 +591,7 @@ def Camera_Select():
     return json_data
 
 
-@agriculture_bp.route("/camera/url")
+@agriculture_bp.route("/camera/url", methods=['GET'])
 def Camera_url():
     global con
     if not con.ping():
@@ -627,7 +627,7 @@ def Camera_url():
     return cameraurl
 
 
-@agriculture_bp.route("/camera/control")
+@agriculture_bp.route("/camera/control", methods=['GET'])
 def Camera_Control():
     global con
     if not con.ping():
@@ -669,7 +669,7 @@ def Camera_Control():
 
 
 # 实时数据返回
-@agriculture_bp.route("/device/api")
+@agriculture_bp.route("/device/api", methods=['GET'])
 def Device_api():
     global con
     if not con.ping():
@@ -685,9 +685,17 @@ def Device_api():
     res_device = cur.fetchone()
     if res_device is None:
         print("未查询到此设备")
-        return '未查询到此设备'
+        response = {
+            "code": 404,
+            "message": "未查询到此设备"
+        }
+        return jsonify(response), 404
     if res_device[5] == '0':
-        return "没有访问权限"
+        response = {
+            "code": 403,
+            "message": "没有访问权限"
+        }
+        return jsonify(response), 403
     device_api = res_device[0] + '/' + method + '?' + 'Version=' + res_device[4] + '&Business=' + res_device[
         1] + '&Equipment=' + res_device[3] + '&RequestTime=' + str(
         int(time.time())) + '&Value={ "page": 1,"length": 5,"deviceId":' + res_device[2] + '}'
@@ -701,11 +709,10 @@ def Device_api():
         "RequestTime": str(int(time.time())),
         "Value": value
     }
-    # print(type(res_device[5]))
     result_data = requests.get(device_url, device_params)
     result = json.loads(result_data.text)
 
-    return result
+    return jsonify(result)
 
 
 # 注册Blueprint到Flask应用中
