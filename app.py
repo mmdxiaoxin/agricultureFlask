@@ -92,6 +92,7 @@ def exportData():
 
 @agriculture_bp.route("/user/deviceList", methods=['GET'])
 def getDeviceList():
+    conn = None  # 初始化连接为 None，以确保无论如何都能关闭连接
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -133,8 +134,11 @@ def getDeviceList():
             'message': '服务器错误: {}'.format(str(e))
         }
         return jsonify(response), 500
+
     finally:
-        cursor.close()
+        # 在 finally 块中关闭连接，确保无论如何都会关闭连接
+        if conn:
+            conn.close()
 
 
 @agriculture_bp.route('/menu/list', methods=['GET'])
@@ -434,6 +438,7 @@ def mock_response():
 
 @agriculture_bp.route("/address/select", methods=['GET'])
 def Address_Select():
+    conn = None  # 初始化连接为 None，以确保无论如何都能关闭连接
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -466,7 +471,9 @@ def Address_Select():
         }
         return jsonify(response_data), 500
     finally:
-        cur.close()
+        # 在 finally 块中关闭连接，确保无论如何都会关闭连接
+        if conn:
+            conn.close()
 
 
 # 返回传感器设备列表（根据地区）
