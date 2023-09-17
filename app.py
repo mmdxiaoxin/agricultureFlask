@@ -1,5 +1,6 @@
 import json
 import time
+
 import pymysql
 import requests
 from flask import Flask, request, Blueprint, jsonify
@@ -19,7 +20,7 @@ DB_CONFIG = {
 }
 
 # 最大连接数
-MAX_DB_CONNECTIONS = 10
+MAX_DB_CONNECTIONS = 20
 
 # 全局数据库连接池
 db_connections = []
@@ -471,162 +472,204 @@ def Address_Select():
 # 返回传感器设备列表（根据地区）
 @agriculture_bp.route("/device/select", methods=['GET'])
 def Device_Select():
-    conn = get_db_connection()
-    # 创建数据库游标
-    cur = conn.cursor()
-    address_id = request.args.get("address_id", default=1, type=str)
-    cur.execute("SELECT id, device_name, business_id, device_id, collect_run FROM device WHERE address_id = %s;",
-                address_id)
-    conn.commit()
-    results = cur.fetchall()
-    rows = []
-    cur.close()
-    # 遍历结果集
-    for row in results:
-        site_id = row[0]
-        device_name = row[1]
-        business_id = row[2]
-        device_id = row[3]
-        collect = row[4]
+    conn = None  # 初始化连接为 None，以确保无论如何都能关闭连接
+    try:
+        conn = get_db_connection()
+        # 创建数据库游标
+        cur = conn.cursor()
+        address_id = request.args.get("address_id", default=1, type=str)
+        cur.execute("SELECT id, device_name, business_id, device_id, collect_run FROM device WHERE address_id = %s;",
+                    address_id)
+        conn.commit()
+        results = cur.fetchall()
+        rows = []
 
-        # 创建字典对象，表示每行结果
-        row_dict = {
-            'id': site_id,
-            'device_name': device_name,
-            'business_id': business_id,
-            'device_id': device_id,
-            'collect_run': collect
+        # 遍历结果集
+        for row in results:
+            site_id = row[0]
+            device_name = row[1]
+            business_id = row[2]
+            device_id = row[3]
+            collect = row[4]
+
+            # 创建字典对象，表示每行结果
+            row_dict = {
+                'id': site_id,
+                'device_name': device_name,
+                'business_id': business_id,
+                'device_id': device_id,
+                'collect_run': collect
+            }
+            # 将每行结果的字典添加到列表中
+            rows.append(row_dict)
+
+        # 将结果列表转换为JSON格式
+        json_data = json.dumps(rows)
+        return json_data
+
+    except Exception as e:
+        # 处理异常，您可以根据需要进行记录或其他操作
+        response_data = {
+            'code': 500,
+            'message': '服务器错误: {}'.format(str(e))
         }
-        # 将每行结果的字典添加到列表中
-        rows.append(row_dict)
+        return jsonify(response_data), 500
 
-    # 将结果列表转换为JSON格式
-    json_data = json.dumps(rows)
-    # 关闭数据库游标
-
-    return json_data
+    finally:
+        # 在 finally 块中关闭连接，确保无论如何都会关闭连接
+        if conn:
+            conn.close()
 
 
+# 根据参数返回数据库中的数据
 @agriculture_bp.route("/data/show", methods=['GET'])
 def Data_Base():
-    conn = get_db_connection()
-    # 创建数据库游标
-    cur = conn.cursor()
-    deviceId = request.args.get("deviceId", default=1, type=str)
-    hour = request.args.get("hour", default=24, type=int)  # 获取 hour 参数，如果没有传递参数，默认值为 24 条数据
-    columns_param = request.args.get("columns")  # 获取要选择的列，作为一个字符串
+    conn = None  # 初始化连接为 None，以确保无论如何都能关闭连接
+    try:
+        conn = get_db_connection()
+        # 创建数据库游标
+        cur = conn.cursor()
+        deviceId = request.args.get("deviceId", default=1, type=str)
+        hour = request.args.get("hour", default=24, type=int)  # 获取 hour 参数，如果没有传递参数，默认值为 24 条数据
+        columns_param = request.args.get("columns")  # 获取要选择的列，作为一个字符串
 
-    # 检查是否存在 columns 参数，并以逗号分隔的方式拆分列名
-    if columns_param:
-        columns_to_select = columns_param.split(',')
-    else:
-        columns_to_select = []
+        # 检查是否存在 columns 参数，并以逗号分隔的方式拆分列名
+        if columns_param:
+            columns_to_select = columns_param.split(',')
+        else:
+            columns_to_select = []
 
-    cur.execute("SELECT name FROM env_db WHERE deviceId = %s;", (deviceId,))
-    conn.commit()
-    dbname = str(cur.fetchall()[0][0]) + deviceId
+        cur.execute("SELECT name FROM env_db WHERE deviceId = %s;", (deviceId,))
+        conn.commit()
+        dbname = str(cur.fetchall()[0][0]) + deviceId
 
-    # 判断是否存在数据表
-    cur.execute("SHOW TABLES LIKE %s;", (dbname,))
-    conn.commit()
-    table_exists = cur.fetchone()
+        # 判断是否存在数据表
+        cur.execute("SHOW TABLES LIKE %s;", (dbname,))
+        conn.commit()
+        table_exists = cur.fetchone()
 
-    if not table_exists:
-        cur.close()
-        response_data = {
-            'code': 404,
-            'message': 'No data found',
-        }
-        return jsonify(response_data)
-
-    cur.execute("SHOW COLUMNS FROM " + dbname + ";")
-    conn.commit()
-    result_columns = cur.fetchall()
-    all_columns = [i[0] for i in result_columns]
-
-    # 构建 SQL 查询以选择特定的列
-    if not columns_to_select:
-        # 如果没有指定要选择的列，默认选择所有列
-        columns_to_select = all_columns
-    else:
-        # 验证所请求的列是否存在于数据表中（忽略大小写）
-        invalid_columns = [col for col in columns_to_select if col.lower() not in [c.lower() for c in all_columns]]
-        if invalid_columns:
+        if not table_exists:
             cur.close()
             response_data = {
-                'code': 400,
-                'message': f'Invalid columns: {", ".join(invalid_columns)}',
+                'code': 404,
+                'message': 'No data found',
             }
             return jsonify(response_data)
 
-    # 构建 SELECT 子句
-    select_clause = ", ".join(columns_to_select)
+        cur.execute("SHOW COLUMNS FROM " + dbname + ";")
+        conn.commit()
+        result_columns = cur.fetchall()
+        all_columns = [i[0] for i in result_columns]
 
-    # 使用 LIMIT 子句来限制返回的数据条数
-    cur.execute(f"SELECT {select_clause} FROM " + dbname + " ORDER BY id DESC LIMIT %s;", (hour,))
-    conn.commit()
-    results = cur.fetchall()
-    rows = []
-    cur.close()
+        # 构建 SQL 查询以选择特定的列
+        if not columns_to_select:
+            # 如果没有指定要选择的列，默认选择所有列
+            columns_to_select = all_columns
+        else:
+            # 验证所请求的列是否存在于数据表中（忽略大小写）
+            invalid_columns = [col for col in columns_to_select if col.lower() not in [c.lower() for c in all_columns]]
+            if invalid_columns:
+                cur.close()
+                response_data = {
+                    'code': 400,
+                    'message': f'Invalid columns: {", ".join(invalid_columns)}',
+                }
+                return jsonify(response_data)
 
-    for row in results:
-        row_dict = dict(zip(columns_to_select, row))
-        rows.append(row_dict)
+        # 构建 SELECT 子句
+        select_clause = ", ".join(columns_to_select)
 
-    # 将结果列表转换为 JSON 格式
-    json_data = rows
+        # 使用 LIMIT 子句来限制返回的数据条数
+        cur.execute(f"SELECT {select_clause} FROM " + dbname + " ORDER BY id DESC LIMIT %s;", (hour,))
+        conn.commit()
+        results = cur.fetchall()
+        rows = []
 
-    response_data = {
-        'code': 200,
-        'message': 'Success',
-        'data': json_data
-    }
+        for row in results:
+            row_dict = dict(zip(columns_to_select, row))
+            rows.append(row_dict)
 
-    return jsonify(response_data)
+        # 将结果列表转换为 JSON 格式
+        json_data = rows
+
+        response_data = {
+            'code': 200,
+            'message': 'Success',
+            'data': json_data
+        }
+
+        return jsonify(response_data)
+
+    except Exception as e:
+        # 处理异常，您可以根据需要进行记录或其他操作
+        response_data = {
+            'code': 500,
+            'message': '服务器错误: {}'.format(str(e))
+        }
+        return jsonify(response_data), 500
+
+    finally:
+        # 在 finally 块中关闭连接，确保无论如何都会关闭连接
+        if conn:
+            conn.close()
 
 
-# 实时数据返回
 @agriculture_bp.route("/device/api", methods=['GET'])
 def Device_api():
-    conn = get_db_connection()
-    # 创建数据库游标
-    cur = conn.cursor()
-    device_id = request.args.get("id", default=1, type=str)
-    method = request.args.get("method", default=1, type=str)
-    cur.execute("SELECT api,business_id, device_id, equipment, version, collect_run FROM device WHERE id = %s;",
-                device_id)
-    conn.commit()
-    res_device = cur.fetchone()
-    if res_device is None:
-        print("未查询到此设备")
-        response = {
-            "code": 404,
-            "message": "未查询到此设备"
+    conn = None  # 初始化连接为 None，以确保无论如何都能关闭连接
+    try:
+        conn = get_db_connection()
+        # 创建数据库游标
+        cur = conn.cursor()
+        device_id = request.args.get("id", default=1, type=str)
+        method = request.args.get("method", default=1, type=str)
+        cur.execute("SELECT api,business_id, device_id, equipment, version, collect_run FROM device WHERE id = %s;",
+                    device_id)
+        conn.commit()
+        res_device = cur.fetchone()
+        if res_device is None:
+            print("未查询到此设备")
+            response = {
+                "code": 404,
+                "message": "未查询到此设备"
+            }
+            return jsonify(response), 404
+        if res_device[5] == '0':
+            response = {
+                "code": 403,
+                "message": "没有访问权限"
+            }
+            return jsonify(response), 403
+        res_device[0] + '/' + method + '?' + 'Version=' + res_device[4] + '&Business=' + res_device[
+            1] + '&Equipment=' + res_device[3] + '&RequestTime=' + str(
+            int(time.time())) + '&Value={ "page": 1,"length": 5,"deviceId":' + res_device[2] + '}'
+        # device_api_last_index = res_api.rfind("/")
+        device_url = res_device[0] + '/' + method
+        value = "{ 'page': 1,'length': 5, 'deviceId': " + res_device[2] + " }"
+        device_params = {
+            "Version": res_device[4],
+            "Business": res_device[1],
+            "Equipment": res_device[3],
+            "RequestTime": str(int(time.time())),
+            "Value": value
         }
-        return jsonify(response), 404
-    if res_device[5] == '0':
-        response = {
-            "code": 403,
-            "message": "没有访问权限"
-        }
-        return jsonify(response), 403
-    res_device[0] + '/' + method + '?' + 'Version=' + res_device[4] + '&Business=' + res_device[
-        1] + '&Equipment=' + res_device[3] + '&RequestTime=' + str(
-        int(time.time())) + '&Value={ "page": 1,"length": 5,"deviceId":' + res_device[2] + '}'
-    # device_api_last_index = res_api.rfind("/")
-    device_url = res_device[0] + '/' + method
-    value = "{ 'page': 1,'length': 5, 'deviceId': " + res_device[2] + " }"
-    device_params = {
-        "Version": res_device[4],
-        "Business": res_device[1],
-        "Equipment": res_device[3],
-        "RequestTime": str(int(time.time())),
-        "Value": value
-    }
-    result_data = requests.get(device_url, device_params)
-    result = json.loads(result_data.text)
+        result_data = requests.get(device_url, device_params)
+        result = json.loads(result_data.text)
 
-    return jsonify(result)
+        return jsonify(result)
+
+    except Exception as e:
+        # 处理异常，您可以根据需要进行记录或其他操作
+        response_data = {
+            'code': 500,
+            'message': '服务器错误: {}'.format(str(e))
+        }
+        return jsonify(response_data), 500
+
+    finally:
+        # 在 finally 块中关闭连接，确保无论如何都会关闭连接
+        if conn:
+            conn.close()
 
 
 if __name__ == "__main__":
