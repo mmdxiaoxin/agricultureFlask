@@ -513,7 +513,6 @@ class DateTimeEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
-# 返回最新的100条历史数据（按传感器设备）
 @agriculture_bp.route("/data/show", methods=['GET'])
 def Data_Base():
     global con
@@ -523,34 +522,77 @@ def Data_Base():
     # 创建数据库游标
     cur = con.cursor()
     deviceId = request.args.get("deviceId", default=1, type=str)
-    cur.execute("SELECT name FROM env_db WHERE deviceId = %s;", (deviceId))
+    hour = request.args.get("hour", default=24, type=int)  # 获取 hour 参数，如果没有传递参数，默认值为 24 条数据
+    columns_param = request.args.get("columns")  # 获取要选择的列，作为一个字符串
+
+    # 检查是否存在 columns 参数，并以逗号分隔的方式拆分列名
+    if columns_param:
+        columns_to_select = columns_param.split(',')
+    else:
+        columns_to_select = []
+
+    cur.execute("SELECT name FROM env_db WHERE deviceId = %s;", (deviceId,))
     con.commit()
     dbname = str(cur.fetchall()[0][0]) + deviceId
+
+    # 判断是否存在数据表
+    cur.execute("SHOW TABLES LIKE %s;", (dbname,))
+    con.commit()
+    table_exists = cur.fetchone()
+
+    if not table_exists:
+        cur.close()
+        response_data = {
+            'code': 404,
+            'message': 'No data found',
+        }
+        return jsonify(response_data)
 
     cur.execute("SHOW COLUMNS FROM " + dbname + ";")
     con.commit()
     result_columns = cur.fetchall()
-    # print("!!!!!!!!")
-    # print(result_columns)
-    columns = []
-    for i in result_columns:
-        columns.append(i[0])
-    cur.execute("SELECT * FROM " + dbname + " ORDER BY id DESC LIMIT 0,100;")
+    all_columns = [i[0] for i in result_columns]
+
+    # 构建 SQL 查询以选择特定的列
+    if not columns_to_select:
+        # 如果没有指定要选择的列，默认选择所有列
+        columns_to_select = all_columns
+    else:
+        # 验证所请求的列是否存在于数据表中（忽略大小写）
+        invalid_columns = [col for col in columns_to_select if col.lower() not in [c.lower() for c in all_columns]]
+        if invalid_columns:
+            cur.close()
+            response_data = {
+                'code': 400,
+                'message': f'Invalid columns: {", ".join(invalid_columns)}',
+            }
+            return jsonify(response_data)
+
+    # 构建 SELECT 子句
+    select_clause = ", ".join(columns_to_select)
+
+    # 使用 LIMIT 子句来限制返回的数据条数
+    cur.execute(f"SELECT {select_clause} FROM " + dbname + " ORDER BY id DESC LIMIT %s;", (hour,))
     con.commit()
     results = cur.fetchall()
     rows = []
     cur.close()
-    # print(results)
 
     for row in results:
-        row_dict = dict(zip(columns, row))
+        row_dict = dict(zip(columns_to_select, row))
         rows.append(row_dict)
 
-    # 将结果列表转换为JSON格式
-    json_data = json.dumps(rows, cls=DateTimeEncoder)
-    # 关闭数据库游标
+    # 将结果列表转换为 JSON 格式
+    json_data = rows
 
-    return json_data
+    response_data = {
+        'code': 200,
+        'message': 'Success',
+        'data': json_data
+    }
+
+    return jsonify(response_data)
+
 
 
 @agriculture_bp.route("/camera/select", methods=['GET'])
@@ -562,7 +604,7 @@ def Camera_Select():
     # 创建数据库游标
     cur = con.cursor()
     address_id = request.args.get("address_id", default=1, type=str)
-    cur.execute("SELECT id, appkey, appsecret, deviceserial FROM camera WHERE address_id = %s;", (address_id))
+    cur.execute("SELECT id, appkey, appsecret, deviceserial FROM camera WHERE address_id = %s;", address_id)
     con.commit()
     results = cur.fetchall()
     rows = []
@@ -680,7 +722,7 @@ def Device_api():
     device_id = request.args.get("id", default=1, type=str)
     method = request.args.get("method", default=1, type=str)
     cur.execute("SELECT api,business_id, device_id, equipment, version, collect_run FROM device WHERE id = %s;",
-                (device_id))
+                device_id)
     con.commit()
     res_device = cur.fetchone()
     if res_device is None:
