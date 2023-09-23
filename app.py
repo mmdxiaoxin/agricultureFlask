@@ -1,13 +1,21 @@
 import json
+import logging
 import time
 
 import pymysql
 import requests
 from flask import Flask, request, Blueprint, jsonify
+from flask_caching import Cache
 from flask_cors import CORS
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 app = Flask(__name__)
 cors = CORS(app)
+
+# 配置缓存
+app.config['CACHE_TYPE'] = 'simple'  # 使用内存缓存
+cache = Cache(app)
 
 # 数据库连接参数
 DB_CONFIG = {
@@ -20,7 +28,7 @@ DB_CONFIG = {
 }
 
 # 最大连接数
-MAX_DB_CONNECTIONS = 20
+MAX_DB_CONNECTIONS = 1000
 
 # 全局数据库连接池
 db_connections = []
@@ -33,13 +41,18 @@ agriculture_bp = Blueprint('agriculture', __name__, url_prefix='/agriculture')
 def get_db_connection():
     if len(db_connections) < MAX_DB_CONNECTIONS:
         conn = pymysql.connect(**DB_CONFIG)
+        if conn is None:
+            logger.error("Failed to create a database connection.")
+            raise Exception("Failed to create a database connection.")
         db_connections.append(conn)
+        logger.info(f"New database connection created. Total connections: {len(db_connections)}")
         return conn
     else:
         # 如果连接池已满，等待并尝试重新获取连接
         for conn in db_connections:
             if not conn.open:
                 conn.ping(reconnect=True)
+                logger.info(f"Database connection reopened. Total connections: {len(db_connections)}")
                 return conn
         time.sleep(1)  # 等待1秒后重试
         return get_db_connection()
@@ -91,6 +104,7 @@ def exportData():
 
 
 @agriculture_bp.route("/user/deviceList", methods=['GET'])
+@cache.memoize(timeout=3600)  # 缓存结果，设置缓存时间（秒）
 def getDeviceList():
     conn = None  # 初始化连接为 None，以确保无论如何都能关闭连接
     try:
@@ -137,7 +151,7 @@ def getDeviceList():
 
     finally:
         # 在 finally 块中关闭连接，确保无论如何都会关闭连接
-        if conn:
+        if conn and conn.open:
             conn.close()
 
 
@@ -437,6 +451,7 @@ def mock_response():
 
 
 @agriculture_bp.route("/address/select", methods=['GET'])
+@cache.memoize(timeout=3600)  # 缓存结果，设置缓存时间（秒）
 def Address_Select():
     conn = None  # 初始化连接为 None，以确保无论如何都能关闭连接
     try:
@@ -472,7 +487,7 @@ def Address_Select():
         return jsonify(response_data), 500
     finally:
         # 在 finally 块中关闭连接，确保无论如何都会关闭连接
-        if conn:
+        if conn and conn.open:
             conn.close()
 
 
@@ -524,103 +539,102 @@ def Device_Select():
 
     finally:
         # 在 finally 块中关闭连接，确保无论如何都会关闭连接
-        if conn:
+        if conn and conn.open:
             conn.close()
 
 
 # 根据参数返回数据库中的数据
 @agriculture_bp.route("/data/show", methods=['GET'])
-def Data_Base():
-    conn = None  # 初始化连接为 None，以确保无论如何都能关闭连接
+def data_base():
     try:
-        conn = get_db_connection()
-        # 创建数据库游标
-        cur = conn.cursor()
-        deviceId = request.args.get("deviceId", default=1, type=str)
-        hour = request.args.get("hour", default=24, type=int)  # 获取 hour 参数，如果没有传递参数，默认值为 24 条数据
-        columns_param = request.args.get("columns")  # 获取要选择的列，作为一个字符串
+        with get_db_connection() as conn:
+            cur = conn.cursor()
+            device_id = request.args.get("deviceId", default=1, type=str)
+            hour = request.args.get("hour", default=24, type=int)
+            columns_param = request.args.get("columns")
 
-        # 检查是否存在 columns 参数，并以逗号分隔的方式拆分列名
-        if columns_param:
-            columns_to_select = columns_param.split(',')
-        else:
-            columns_to_select = []
-
-        cur.execute("SELECT name FROM env_db WHERE deviceId = %s;", (deviceId,))
-        conn.commit()
-        dbname = str(cur.fetchall()[0][0]) + deviceId
-
-        # 判断是否存在数据表
-        cur.execute("SHOW TABLES LIKE %s;", (dbname,))
-        conn.commit()
-        table_exists = cur.fetchone()
-
-        if not table_exists:
-            cur.close()
-            response_data = {
-                'code': 404,
-                'message': 'No data found',
-            }
-            return jsonify(response_data)
-
-        cur.execute("SHOW COLUMNS FROM " + dbname + ";")
-        conn.commit()
-        result_columns = cur.fetchall()
-        all_columns = [i[0] for i in result_columns]
-
-        # 构建 SQL 查询以选择特定的列
-        if not columns_to_select:
-            # 如果没有指定要选择的列，默认选择所有列
-            columns_to_select = all_columns
-        else:
-            # 验证所请求的列是否存在于数据表中（忽略大小写）
-            invalid_columns = [col for col in columns_to_select if col.lower() not in [c.lower() for c in all_columns]]
-            if invalid_columns:
-                cur.close()
+            dbname = get_database_name(cur, device_id)
+            if not table_exists(cur, dbname):
                 response_data = {
-                    'code': 400,
-                    'message': f'Invalid columns: {", ".join(invalid_columns)}',
+                    'code': 404,
+                    'message': 'No data found',
                 }
                 return jsonify(response_data)
 
-        # 构建 SELECT 子句
-        select_clause = ", ".join(columns_to_select)
+            all_columns = get_all_columns(cur, dbname)
+            columns_to_select = get_columns_to_select(columns_param, all_columns)
 
-        # 使用 LIMIT 子句来限制返回的数据条数
-        cur.execute(f"SELECT {select_clause} FROM " + dbname + " ORDER BY id DESC LIMIT %s;", (hour,))
-        conn.commit()
-        results = cur.fetchall()
-        rows = []
+            select_clause = construct_select_clause(columns_to_select)
+            results = execute_query(cur, dbname, select_clause, hour)
 
-        for row in results:
-            row_dict = dict(zip(columns_to_select, row))
-            rows.append(row_dict)
+            json_data = convert_to_json(results, columns_to_select)
 
-        # 将结果列表转换为 JSON 格式
-        json_data = rows
+            response_data = {
+                'code': 200,
+                'message': 'Success',
+                'data': json_data
+            }
 
+            return jsonify(response_data)
+
+    except IndexError:
         response_data = {
-            'code': 200,
-            'message': 'Success',
-            'data': json_data
+            'code': 404,
+            'message': 'No data found',
         }
-
         return jsonify(response_data)
 
     except Exception as e:
-        # 处理异常，您可以根据需要进行记录或其他操作
+        print("服务器错误:", str(e))
         response_data = {
             'code': 500,
             'message': '服务器错误: {}'.format(str(e))
         }
         return jsonify(response_data), 500
 
-    finally:
-        # 在 finally 块中关闭连接，确保无论如何都会关闭连接
-        if conn:
-            conn.close()
+
+def get_database_name(cur, device_id):
+    cur.execute("SELECT name FROM env_db WHERE deviceId = %s;", (device_id,))
+    return str(cur.fetchall()[0][0]) + device_id
 
 
+def table_exists(cur, dbname):
+    cur.execute("SHOW TABLES LIKE %s;", (dbname,))
+    return cur.fetchone()
+
+
+def get_all_columns(cur, dbname):
+    cur.execute("SHOW COLUMNS FROM " + dbname + ";")
+    result_columns = cur.fetchall()
+    return [i[0] for i in result_columns]
+
+
+def get_columns_to_select(columns_param, all_columns):
+    if columns_param:
+        columns_to_select = columns_param.split(',')
+    else:
+        columns_to_select = []
+    return columns_to_select if columns_to_select else all_columns
+
+
+def construct_select_clause(columns_to_select):
+    return ", ".join(columns_to_select)
+
+
+def execute_query(cur, dbname, select_clause, hour):
+    cur.execute(f"SELECT {select_clause} FROM " + dbname + " ORDER BY id DESC LIMIT %s;", (hour,))
+    return cur.fetchall()
+
+
+def convert_to_json(results, columns_to_select):
+    rows = []
+    for row in results:
+        row_dict = dict(zip(columns_to_select, row))
+        rows.append(row_dict)
+    return rows
+
+
+# 返回实时数据或者设备属性等等
 @agriculture_bp.route("/device/api", methods=['GET'])
 def Device_api():
     conn = None  # 初始化连接为 None，以确保无论如何都能关闭连接
@@ -641,12 +655,14 @@ def Device_api():
                 "message": "未查询到此设备"
             }
             return jsonify(response), 404
+
         if res_device[5] == '0':
             response = {
                 "code": 403,
                 "message": "没有访问权限"
             }
             return jsonify(response), 403
+
         res_device[0] + '/' + method + '?' + 'Version=' + res_device[4] + '&Business=' + res_device[
             1] + '&Equipment=' + res_device[3] + '&RequestTime=' + str(
             int(time.time())) + '&Value={ "page": 1,"length": 5,"deviceId":' + res_device[2] + '}'
@@ -675,7 +691,7 @@ def Device_api():
 
     finally:
         # 在 finally 块中关闭连接，确保无论如何都会关闭连接
-        if conn:
+        if conn and conn.open:
             conn.close()
 
 
