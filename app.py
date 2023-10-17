@@ -1,10 +1,11 @@
 import json
 import logging
 import time
+from io import StringIO
 
 import pymysql
 import requests
-from flask import Flask, request, Blueprint, jsonify
+from flask import Flask, request, Blueprint, jsonify, Response
 from flask_caching import Cache
 from flask_cors import CORS
 
@@ -63,22 +64,33 @@ def Hello_World():
     return "欢迎使用农业监控系统"
 
 
+# 处理用户登录请求
 @agriculture_bp.route('/login', methods=['POST'])
 def login():
     data = request.json
     username = data.get('username')
     password = data.get('password')
 
-    if ((username == 'admin' and password == 'e10adc3949ba59abbe56e057f20f883e') or
-            (username == 'user' and password == 'e10adc3949ba59abbe56e057f20f883e')):
-        code = 200
-        access_token = 'bqddxxwqmfncffacvbpkuxvwvqrhln' if username == 'admin' else 'unufvdotdqxuzfbdygovfmsbftlvbn'
-        message = '成功'
-    else:
-        code = 500
-        access_token = None
-        message = '用户名或密码错误'
+    # 验证用户名和密码
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            sql = "SELECT * FROM users WHERE username = %s AND password = %s"
+            cursor.execute(sql, (username, password))
+            user = cursor.fetchone()
 
+        if user:
+            code = 200
+            access_token = 'bqddxxwqmfncffacvbpkuxvwvqrhln'  # 生成你的访问令牌逻辑
+            message = '成功'
+        else:
+            code = 500
+            access_token = None
+            message = '用户名或密码错误'
+    finally:
+        conn.close()
+
+    # 构建登录响应 JSON
     response_data = {
         'code': code,
         'data': {'access_token': access_token},
@@ -88,24 +100,34 @@ def login():
     return jsonify(response_data)
 
 
+# 处理用户注销请求
 @agriculture_bp.route('/logout', methods=['POST'])
 def logout():
     return jsonify({"code": 200, "message": "成功"})
 
 
+# 处理用户数据导入请求
 @agriculture_bp.route('/user/import', methods=['POST'])
 def importData():
     return jsonify({"code": 200, "message": "成功"})
 
 
+# 处理用户数据导出请求
 @agriculture_bp.route('/user/export', methods=['POST'])
 def exportData():
     return jsonify({"code": 200, "message": "成功"})
 
 
+# 获取用户设备列表并缓存结果
 @agriculture_bp.route("/user/deviceList", methods=['GET'])
 @cache.memoize(timeout=3600)  # 缓存结果，设置缓存时间（秒）
 def getDeviceList():
+    """
+    用于获取用户设备列表的GET请求，并缓存结果。
+
+    Returns:
+        JSON: 包含设备列表的JSON响应
+    """
     conn = None  # 初始化连接为 None，以确保无论如何都能关闭连接
     try:
         conn = get_db_connection()
@@ -134,6 +156,7 @@ def getDeviceList():
 
             deviceList.append(site_info)
 
+        # 构建响应 JSON
         response = {
             'code': 200,
             'data': deviceList,
@@ -172,20 +195,6 @@ def mock_response():
                     "isHide": False,
                     "isFull": False,
                     "isAffix": True,
-                    "isKeepAlive": True
-                }
-            },
-            {
-                "path": "/dataScreen",
-                "name": "dataScreen",
-                "component": "/dataScreen/index",
-                "meta": {
-                    "icon": "Histogram",
-                    "title": "数据大屏",
-                    "isLink": "",
-                    "isHide": False,
-                    "isFull": True,
-                    "isAffix": False,
                     "isKeepAlive": True
                 }
             },
@@ -245,76 +254,6 @@ def mock_response():
                         }
                     },
                     {
-                        "path": "/diseaseWarning/diseaseWarningSys",
-                        "name": "diseaseWarningSys",
-                        "component": "/diseaseWarning/diseaseWarningSys/index",
-                        "meta": {
-                            "icon": "warning",
-                            "title": "病害预警",
-                            "isLink": "",
-                            "isHide": False,
-                            "isFull": False,
-                            "isAffix": False,
-                            "isKeepAlive": True
-                        }
-                    },
-                    {
-                        "path": "/diseaseWarning/preventionAndControlInformation",
-                        "name": "preventionAndControlInformation",
-                        "component": "/diseaseWarning/preventionAndControlInformation/index",
-                        "meta": {
-                            "icon": "QuestionFilled",
-                            "title": "防治信息",
-                            "isLink": "",
-                            "isHide": False,
-                            "isFull": False,
-                            "isAffix": False,
-                            "isKeepAlive": True
-                        }
-                    },
-                    {
-                        "path": "/diseaseWarning/dataImport",
-                        "name": "dataImport",
-                        "component": "/diseaseWarning/dataImport/index",
-                        "meta": {
-                            "icon": "upload",
-                            "title": "数据导入",
-                            "isLink": "",
-                            "isHide": False,
-                            "isFull": False,
-                            "isAffix": False,
-                            "isKeepAlive": True
-                        }
-                    },
-                    {
-                        "path": "/diseaseWarning/reportExport",
-                        "name": "reportExport",
-                        "component": "/diseaseWarning/reportExport/index",
-                        "meta": {
-                            "icon": "download",
-                            "title": "报表导出",
-                            "isLink": "",
-                            "isHide": False,
-                            "isFull": False,
-                            "isAffix": False,
-                            "isKeepAlive": True
-                        }
-                    },
-                    {
-                        "path": "/diseaseWarning/scheduledTasks",
-                        "name": "scheduledTasks",
-                        "component": "/diseaseWarning/scheduledTasks/index",
-                        "meta": {
-                            "icon": "clock",
-                            "title": "定时任务",
-                            "isLink": "",
-                            "isHide": False,
-                            "isFull": False,
-                            "isAffix": False,
-                            "isKeepAlive": True
-                        }
-                    },
-                    {
                         "path": "/diseaseWarning/notificationSystem",
                         "name": "notificationSystem",
                         "component": "/diseaseWarning/notificationSystem/index",
@@ -343,27 +282,14 @@ def mock_response():
                     "isAffix": False,
                     "isKeepAlive": True
                 },
-                "children": [{
-                    "path": "/system/accountManage",
-                    "name": "accountManage",
-                    "component": "/system/accountManage/index",
-                    "meta": {
-                        "icon": "Menu",
-                        "title": "账号管理",
-                        "isLink": "",
-                        "isHide": False,
-                        "isFull": False,
-                        "isAffix": False,
-                        "isKeepAlive": True
-                    }
-                },
+                "children": [
                     {
-                        "path": "/system/menuMange",
-                        "name": "menuMange",
-                        "component": "/system/menuMange/index",
+                        "path": "/system/accountManage",
+                        "name": "accountManage",
+                        "component": "/system/accountManage/index",
                         "meta": {
                             "icon": "Menu",
-                            "title": "菜单管理",
+                            "title": "账号管理",
                             "isLink": "",
                             "isHide": False,
                             "isFull": False,
@@ -487,6 +413,88 @@ def Address_Select():
         return jsonify(response_data), 500
     finally:
         # 在 finally 块中关闭连接，确保无论如何都会关闭连接
+        if conn and conn.open:
+            conn.close()
+
+
+# 返回仪表盘数据
+@agriculture_bp.route('/device/count', methods=['GET'])
+def get_device_count():
+    conn = None
+    try:
+        conn = get_db_connection()  # 获取数据库连接
+
+        # 执行查询获取设备数量
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM device;')
+            device_count = cursor.fetchone()[0]  # 获取设备数量
+
+        # 执行查询获取站点数量
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM env_db;')
+            site_count = cursor.fetchone()[0]  # 获取站点数量
+
+        # 查询mihoutao39表的数据记录数量
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM mihoutao39;')
+            mihoutao39_count = cursor.fetchone()[0]  # 获取mihoutao39表的数据记录数量
+
+        # 查询pingguo42表的数据记录数量
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM pingguo42;')
+            pingguo42_count = cursor.fetchone()[0]  # 获取pingguo42表的数据记录数量
+
+        # 查询putao41表的数据记录数量
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM putao41;')
+            putao41_count = cursor.fetchone()[0]  # 获取putao41表的数据记录数量
+
+        # 查询shucai44表的数据记录数量
+        with conn.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM shucai44;')
+            shucai44_count = cursor.fetchone()[0]  # 获取shucai44表的数据记录数量
+
+        total_numberOfDeviceRecords = mihoutao39_count + pingguo42_count + putao41_count + shucai44_count
+
+        response_data = {
+            'code': 200,
+            'message': '成功',
+            'data': {
+                'deviceCount': device_count,
+                'totalDeviceDataCount': total_numberOfDeviceRecords,
+                'siteCount': site_count,
+                'siteValues':
+                    [
+                        {
+                            'name': "武功猕猴桃试验站",
+                            'value': mihoutao39_count
+                        },
+                        {
+                            'name': "白水苹果试验站",
+                            'value': pingguo42_count
+                        },
+                        {
+                            'name': "临渭葡萄研究所",
+                            'value': putao41_count
+                        },
+                        {
+                            'name': "泾阳蔬菜示范站",
+                            'value': shucai44_count
+                        }
+                    ]
+            }
+        }
+
+        return jsonify(response_data)
+
+    except Exception as e:
+        response_data = {
+            'code': 500,
+            'message': f'服务器错误: {str(e)}'
+        }
+        return jsonify(response_data), 500
+
+    finally:
         if conn and conn.open:
             conn.close()
 
