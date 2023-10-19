@@ -1,11 +1,10 @@
 import json
 import logging
 import time
-from io import StringIO
 
 import pymysql
 import requests
-from flask import Flask, request, Blueprint, jsonify, Response
+from flask import Flask, request, Blueprint, jsonify
 from flask_caching import Cache
 from flask_cors import CORS
 
@@ -94,6 +93,46 @@ def login():
     response_data = {
         'code': code,
         'data': {'access_token': access_token},
+        'message': message
+    }
+
+    return jsonify(response_data)
+
+
+# 处理用户注册请求
+@agriculture_bp.route('/register', methods=['POST'])
+def register():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+
+    # 检查用户名是否已存在
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cursor:
+            # 查询数据库中是否已存在相同的用户名
+            sql = "SELECT * FROM users WHERE username = %s"
+            cursor.execute(sql, (username,))
+            existing_user = cursor.fetchone()
+
+        if existing_user:
+            code = 500
+            message = '用户名已存在'
+        else:
+            # 如果用户名不存在，将新用户插入数据库
+            with conn.cursor() as cursor:
+                sql = "INSERT INTO users (username, password) VALUES (%s, %s)"
+                cursor.execute(sql, (username, password))
+                conn.commit()
+
+            code = 200
+            message = '注册成功'
+    finally:
+        conn.close()
+
+    # 构建注册响应 JSON
+    response_data = {
+        'code': code,
         'message': message
     }
 
@@ -225,20 +264,21 @@ def mock_response():
                     "isAffix": False,
                     "isKeepAlive": True
                 },
-                "children": [{
-                    "path": "/diseaseWarning/dataVisualization",
-                    "name": "dataVisualization",
-                    "component": "/diseaseWarning/dataVisualization/index",
-                    "meta": {
-                        "icon": "Histogram",
-                        "title": "数据可视化",
-                        "isLink": "",
-                        "isHide": False,
-                        "isFull": False,
-                        "isAffix": False,
-                        "isKeepAlive": True
-                    }
-                },
+                "children": [
+                    {
+                        "path": "/diseaseWarning/dataVisualization",
+                        "name": "dataVisualization",
+                        "component": "/diseaseWarning/dataVisualization/index",
+                        "meta": {
+                            "icon": "Histogram",
+                            "title": "数据可视化",
+                            "isLink": "",
+                            "isHide": False,
+                            "isFull": False,
+                            "isAffix": False,
+                            "isKeepAlive": True
+                        }
+                    },
                     {
                         "path": "/diseaseWarning/real-timeData",
                         "name": "real-timeData",
@@ -254,42 +294,12 @@ def mock_response():
                         }
                     },
                     {
-                        "path": "/diseaseWarning/notificationSystem",
-                        "name": "notificationSystem",
-                        "component": "/diseaseWarning/notificationSystem/index",
+                        "path": "/diseaseWarning/dataImport",
+                        "name": "dataImport",
+                        "component": "/diseaseWarning/dataImport/index",
                         "meta": {
-                            "icon": "bell",
-                            "title": "消息通知",
-                            "isLink": "",
-                            "isHide": False,
-                            "isFull": False,
-                            "isAffix": False,
-                            "isKeepAlive": True
-                        }
-                    }
-                ]
-            },
-            {
-                "path": "/system",
-                "name": "system",
-                "redirect": "/system/accountManage",
-                "meta": {
-                    "icon": "Tools",
-                    "title": "系统管理",
-                    "isLink": "",
-                    "isHide": False,
-                    "isFull": False,
-                    "isAffix": False,
-                    "isKeepAlive": True
-                },
-                "children": [
-                    {
-                        "path": "/system/accountManage",
-                        "name": "accountManage",
-                        "component": "/system/accountManage/index",
-                        "meta": {
-                            "icon": "Menu",
-                            "title": "账号管理",
+                            "icon": "upload",
+                            "title": "数据导入",
                             "isLink": "",
                             "isHide": False,
                             "isFull": False,
@@ -298,12 +308,26 @@ def mock_response():
                         }
                     },
                     {
-                        "path": "/system/systemLog",
-                        "name": "systemLog",
-                        "component": "/system/systemLog/index",
+                        "path": "/diseaseWarning/reportExport",
+                        "name": "reportExport",
+                        "component": "/diseaseWarning/reportExport/index",
                         "meta": {
-                            "icon": "Menu",
-                            "title": "系统日志",
+                            "icon": "download",
+                            "title": "报表导出",
+                            "isLink": "",
+                            "isHide": False,
+                            "isFull": False,
+                            "isAffix": False,
+                            "isKeepAlive": True
+                        }
+                    },
+                    {
+                        "path": "/diseaseWarning/notificationSystem",
+                        "name": "notificationSystem",
+                        "component": "/diseaseWarning/notificationSystem/index",
+                        "meta": {
+                            "icon": "bell",
+                            "title": "消息通知",
                             "isLink": "",
                             "isHide": False,
                             "isFull": False,
