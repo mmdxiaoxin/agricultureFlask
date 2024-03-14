@@ -1,176 +1,190 @@
 {
-    "menu": [
+  "menu": [
+    {
+      "path": "/home/index",
+      "name": "home",
+      "component": "/home/index",
+      "meta": {
+        "icon": "HomeFilled",
+        "title": "首页",
+        "isLink": "",
+        "isHide": false,
+        "isFull": false,
+        "isAffix": true,
+        "isKeepAlive": true
+      }
+    },
+    {
+      "path": "/dashboard/dataVisualize",
+      "name": "dataVisualize",
+      "component": "/dashboard/dataVisualize/index",
+      "meta": {
+        "icon": "Odometer",
+        "title": "仪表盘",
+        "isLink": "",
+        "isHide": false,
+        "isFull": false,
+        "isAffix": false,
+        "isKeepAlive": true
+      }
+    },
+    {
+      "path": "/diseaseWarning",
+      "name": "diseaseWarning",
+      "redirect": "/diseaseWarning/dataVisualization",
+      "meta": {
+        "icon": "WarningFilled",
+        "title": "农业预警",
+        "isLink": "",
+        "isHide": false,
+        "isFull": false,
+        "isAffix": false,
+        "isKeepAlive": true
+      },
+      "children": [
         {
-            "path": "/home/index",
-            "name": "home",
-            "component": "/home/index",
-            "meta": {
-                "icon": "HomeFilled",
-                "title": "首页",
-                "isLink": "",
-                "isHide": false,
-                "isFull": false,
-                "isAffix": true,
-                "isKeepAlive": true
-            }
+          "path": "/diseaseWarning/dataVisualization",
+          "name": "dataVisualization",
+          "component": "/diseaseWarning/dataVisualization/index",
+          "meta": {
+            "icon": "Histogram",
+            "title": "数据可视化",
+            "isLink": "",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
         },
         {
-            "path": "/dashboard/dataVisualize",
-            "name": "dataVisualize",
-            "component": "/dashboard/dataVisualize/index",
-            "meta": {
-                "icon": "Odometer",
-                "title": "仪表盘",
-                "isLink": "",
-                "isHide": false,
-                "isFull": false,
-                "isAffix": false,
-                "isKeepAlive": true
-            }
+          "path": "/diseaseWarning/real-timeData",
+          "name": "real-timeData",
+          "component": "/diseaseWarning/real-timeData/index",
+          "meta": {
+            "icon": "Grid",
+            "title": "实时数据",
+            "isLink": "",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
         },
         {
-            "path": "/diseaseWarning",
-            "name": "diseaseWarning",
-            "redirect": "/diseaseWarning/dataVisualization",
-            "meta": {
-                "icon": "WarningFilled",
-                "title": "农业预警",
-                "isLink": "",
-                "isHide": false,
-                "isFull": false,
-                "isAffix": false,
-                "isKeepAlive": true
-            },
-            "children": [
-                {
-                    "path": "/diseaseWarning/dataVisualization",
-                    "name": "dataVisualization",
-                    "component": "/diseaseWarning/dataVisualization/index",
-                    "meta": {
-                        "icon": "Histogram",
-                        "title": "数据可视化",
-                        "isLink": "",
-                        "isHide": false,
-                        "isFull": false,
-                        "isAffix": false,
-                        "isKeepAlive": true
-                    }
-                },
-                {
-                    "path": "/diseaseWarning/real-timeData",
-                    "name": "real-timeData",
-                    "component": "/diseaseWarning/real-timeData/index",
-                    "meta": {
-                        "icon": "Grid",
-                        "title": "实时数据",
-                        "isLink": "",
-                        "isHide": false,
-                        "isFull": false,
-                        "isAffix": false,
-                        "isKeepAlive": true
-                    }
-                },
-                {
-                    "path": "/diseaseWarning/dataImport",
-                    "name": "dataImport",
-                    "component": "/diseaseWarning/dataImport/index",
-                    "meta": {
-                        "icon": "upload",
-                        "title": "数据导入",
-                        "isLink": "",
-                        "isHide": false,
-                        "isFull": false,
-                        "isAffix": false,
-                        "isKeepAlive": true
-                    }
-                },
-                {
-                    "path": "/diseaseWarning/reportExport",
-                    "name": "reportExport",
-                    "component": "/diseaseWarning/reportExport/index",
-                    "meta": {
-                        "icon": "download",
-                        "title": "报表导出",
-                        "isLink": "",
-                        "isHide": false,
-                        "isFull": false,
-                        "isAffix": false,
-                        "isKeepAlive": true
-                    }
-                },
-                {
-                    "path": "/diseaseWarning/notificationSystem",
-                    "name": "notificationSystem",
-                    "component": "/diseaseWarning/notificationSystem/index",
-                    "meta": {
-                        "icon": "bell",
-                        "title": "消息通知",
-                        "isLink": "",
-                        "isHide": false,
-                        "isFull": false,
-                        "isAffix": false,
-                        "isKeepAlive": true
-                    }
-                }
-            ]
+          "path": "/diseaseWarning/dataImport",
+          "name": "dataImport",
+          "component": "/diseaseWarning/dataImport/index",
+          "meta": {
+            "icon": "upload",
+            "title": "数据导入",
+            "isLink": "",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
         },
         {
-            "path": "/link",
-            "name": "link",
-            "redirect": "/link/gitee",
-            "meta": {
-                "icon": "Paperclip",
-                "title": "外部链接",
-                "isLink": "",
-                "isHide": false,
-                "isFull": false,
-                "isAffix": false,
-                "isKeepAlive": true
-            },
-            "children": [
-                {
-                    "path": "/link/gitee",
-                    "name": "gitee",
-                    "component": "/link/gitee/index",
-                    "meta": {
-                        "icon": "Menu",
-                        "title": "Gitee 仓库",
-                        "isLink": "https://gitee.com/haojingxin/Agricultural",
-                        "isHide": false,
-                        "isFull": false,
-                        "isAffix": false,
-                        "isKeepAlive": true
-                    }
-                },
-                {
-                    "path": "/link/github",
-                    "name": "github",
-                    "component": "/link/github/index",
-                    "meta": {
-                        "icon": "Menu",
-                        "title": "GitHub 仓库",
-                        "isLink": "https://github.com/mmdxiaoxin/Agricultural",
-                        "isHide": false,
-                        "isFull": false,
-                        "isAffix": false,
-                        "isKeepAlive": true
-                    }
-                }
-            ]
+          "path": "/diseaseWarning/reportExport",
+          "name": "reportExport",
+          "component": "/diseaseWarning/reportExport/index",
+          "meta": {
+            "icon": "download",
+            "title": "报表导出",
+            "isLink": "",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
         },
         {
-            "path": "/about/index",
-            "name": "about",
-            "component": "/about/index",
-            "meta": {
-                "icon": "InfoFilled",
-                "title": "关于项目",
-                "isLink": "",
-                "isHide": false,
-                "isFull": false,
-                "isAffix": false,
-                "isKeepAlive": true
-            }
+          "path": "/diseaseWarning/notificationSystem",
+          "name": "notificationSystem",
+          "component": "/diseaseWarning/notificationSystem/index",
+          "meta": {
+            "icon": "bell",
+            "title": "消息通知",
+            "isLink": "",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
         }
-    ]
+      ]
+    },
+    {
+      "path": "/diseaseIdentification",
+      "name": "diseaseIdentification",
+      "component": "/diseaseIdentification/index",
+      "meta": {
+        "icon": "bell",
+        "title": "病害识别",
+        "isLink": "",
+        "isHide": false,
+        "isFull": false,
+        "isAffix": false,
+        "isKeepAlive": true
+      }
+    },
+    {
+      "path": "/link",
+      "name": "link",
+      "redirect": "/link/gitee",
+      "meta": {
+        "icon": "Paperclip",
+        "title": "外部链接",
+        "isLink": "",
+        "isHide": false,
+        "isFull": false,
+        "isAffix": false,
+        "isKeepAlive": true
+      },
+      "children": [
+        {
+          "path": "/link/gitee",
+          "name": "gitee",
+          "component": "/link/gitee/index",
+          "meta": {
+            "icon": "Menu",
+            "title": "Gitee 仓库",
+            "isLink": "https://gitee.com/haojingxin/Agricultural",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
+        },
+        {
+          "path": "/link/github",
+          "name": "github",
+          "component": "/link/github/index",
+          "meta": {
+            "icon": "Menu",
+            "title": "GitHub 仓库",
+            "isLink": "https://github.com/mmdxiaoxin/Agricultural",
+            "isHide": false,
+            "isFull": false,
+            "isAffix": false,
+            "isKeepAlive": true
+          }
+        }
+      ]
+    },
+    {
+      "path": "/about/index",
+      "name": "about",
+      "component": "/about/index",
+      "meta": {
+        "icon": "InfoFilled",
+        "title": "关于项目",
+        "isLink": "",
+        "isHide": false,
+        "isFull": false,
+        "isAffix": false,
+        "isKeepAlive": true
+      }
+    }
+  ]
 }
