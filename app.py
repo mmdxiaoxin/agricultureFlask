@@ -374,14 +374,14 @@ def data_base():
 
 # 返回实时数据或者设备属性等等
 @agriculture_bp.route("/device/api", methods=['GET'])
-def Device_api():
+def device_api():
     conn = None  # 初始化连接为 None，以确保无论如何都能关闭连接
     try:
         conn = get_db_connection()
         # 创建数据库游标
         cur = conn.cursor()
         device_id = request.args.get("id", default=1, type=str)
-        method = request.args.get("method", default=1, type=str)
+        api_method = request.args.get("method", default=1, type=str)
         cur.execute("SELECT api,business_id, device_id, equipment, version, collect_run FROM device WHERE id = %s;",
                     device_id)
         conn.commit()
@@ -401,11 +401,11 @@ def Device_api():
             }
             return jsonify(response), 403
 
-        res_device[0] + '/' + method + '?' + 'Version=' + res_device[4] + '&Business=' + res_device[
+        res_device[0] + '/' + api_method + '?' + 'Version=' + res_device[4] + '&Business=' + res_device[
             1] + '&Equipment=' + res_device[3] + '&RequestTime=' + str(
             int(time.time())) + '&Value={ "page": 1,"length": 5,"deviceId":' + res_device[2] + '}'
         # device_api_last_index = res_api.rfind("/")
-        device_url = res_device[0] + '/' + method
+        device_url = res_device[0] + '/' + api_method
         value = "{ 'page': 1,'length': 5, 'deviceId': " + res_device[2] + " }"
         device_params = {
             "Version": res_device[4],
