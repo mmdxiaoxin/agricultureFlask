@@ -200,44 +200,20 @@ def mock_response():
         return jsonify({"code": 401, "message": "Unauthorized"})
 
 
+# 返回站点列表
 @agriculture_bp.route("/address/select", methods=['GET'])
 def address_select():
-    conn = None  # 初始化连接为 None，以确保无论如何都能关闭连接
     try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute('SELECT * FROM address;')
-        results = cur.fetchall()
-        rows = []
+        # 查询所有地址
+        addresses = Address.query.all()
 
-        for row in results:
-            site_id = row[0]
-            name = row[1]
-
-            row_dict = {
-                'id': site_id,
-                'name': name
-            }
-
-            rows.append(row_dict)
-
-        response_data = {
-            'code': 200,
-            'data': rows,
-            'message': 'Success'
-        }
-
+        # 构建响应数据
+        rows = [{'id': address.id, 'name': address.name} for address in addresses]
+        response_data = {'code': 200, 'data': rows, 'message': 'Success'}
         return jsonify(response_data)
     except Exception as e:
-        response_data = {
-            'code': 500,
-            'message': f'Server Error: {str(e)}'
-        }
+        response_data = {'code': 500, 'message': f'Server Error: {str(e)}'}
         return jsonify(response_data), 500
-    finally:
-        # 在 finally 块中关闭连接，确保无论如何都会关闭连接
-        if conn and conn.open:
-            conn.close()
 
 
 # 返回仪表盘数据
