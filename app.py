@@ -10,6 +10,7 @@ from flask_caching import Cache
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 
+from model import Users
 from routes import routes_bp
 
 logging.basicConfig(level=logging.INFO)
@@ -78,16 +79,6 @@ def get_db_connection():
 @agriculture_bp.route('/', methods=['GET'])
 def hello_world():
     return "欢迎使用农业监控系统"
-
-
-# 定义模型类，映射到已存在的表
-class Users(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(50), unique=True)
-    password = db.Column(db.String(50))
-
-    def __repr__(self):
-        return f'<User {self.username}>'
 
 
 # 处理用户登录请求
