@@ -8,7 +8,7 @@ from flask import Blueprint
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-from model import Users, Address, db
+from model import Users, Address, db, Device
 from routes import routes_bp
 
 logging.basicConfig(level=logging.INFO)
@@ -301,53 +301,23 @@ def get_device_count():
 # 返回传感器设备列表（根据地区）
 @agriculture_bp.route("/device/select", methods=['GET'])
 def device_select():
-    conn = None  # 初始化连接为 None，以确保无论如何都能关闭连接
     try:
-        conn = get_db_connection()
-        # 创建数据库游标
-        cur = conn.cursor()
-        address_id = request.args.get("address_id", default=1, type=str)
-        cur.execute("SELECT id, device_name, business_id, device_id, collect_run FROM device WHERE address_id = %s;",
-                    address_id)
-        conn.commit()
-        results = cur.fetchall()
-        rows = []
+        # 获取请求参数
+        address_id = request.args.get("address_id", default=1, type=int)
 
-        # 遍历结果集
-        for row in results:
-            site_id = row[0]
-            device_name = row[1]
-            business_id = row[2]
-            device_id = row[3]
-            collect = row[4]
+        # 查询符合条件的设备列表
+        devices = Device.query.filter_by(address_id=address_id).all()
 
-            # 创建字典对象，表示每行结果
-            row_dict = {
-                'id': site_id,
-                'device_name': device_name,
-                'business_id': business_id,
-                'device_id': device_id,
-                'collect_run': collect
-            }
-            # 将每行结果的字典添加到列表中
-            rows.append(row_dict)
+        # 构建响应数据
+        rows = [{'id': device.id, 'device_name': device.device_name,
+                 'business_id': device.business_id, 'device_id': device.device_id,
+                 'collect_run': device.collect_run} for device in devices]
 
-        # 将结果列表转换为JSON格式
-        json_data = json.dumps(rows)
-        return json_data
-
+        response_data = {'code': 200, 'data': rows, 'message': 'Success'}
+        return jsonify(response_data)
     except Exception as e:
-        # 处理异常，您可以根据需要进行记录或其他操作
-        response_data = {
-            'code': 500,
-            'message': '服务器错误: {}'.format(str(e))
-        }
+        response_data = {'code': 500, 'message': f'Server Error: {str(e)}'}
         return jsonify(response_data), 500
-
-    finally:
-        # 在 finally 块中关闭连接，确保无论如何都会关闭连接
-        if conn and conn.open:
-            conn.close()
 
 
 # 根据参数返回数据库中的数据
