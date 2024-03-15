@@ -6,11 +6,9 @@ import pymysql
 import requests
 from flask import Blueprint
 from flask import Flask, request, jsonify
-from flask_caching import Cache
 from flask_cors import CORS
-from flask_sqlalchemy import SQLAlchemy
 
-from model import Users
+from model import Users, Address, db
 from routes import routes_bp
 
 logging.basicConfig(level=logging.INFO)
@@ -23,13 +21,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:122600@localhost/e
 app.config['SQLALCHEMY_POOL_SIZE'] = 10
 app.config['SQLALCHEMY_POOL_TIMEOUT'] = 30
 app.config['SQLALCHEMY_POOL_RECYCLE'] = 3600
-db = SQLAlchemy(app)
+db.init_app(app)
 
 cors = CORS(app)
-
-# 配置缓存
-app.config['CACHE_TYPE'] = 'simple'  # 使用内存缓存
-cache = Cache(app)
 
 # 数据库连接参数
 DB_CONFIG = {
@@ -156,40 +150,23 @@ def export_data():
     return jsonify({"code": 200, "message": "成功"})
 
 
-# 获取用户设备列表并缓存结果
+# 获取用户设备列表
 @agriculture_bp.route("/user/deviceList", methods=['GET'])
 def get_device_list():
-    """
-    用于获取用户设备列表的GET请求，并缓存结果。
-
-    Returns:
-        JSON: 包含设备列表的JSON响应
-    """
-    conn = None  # 初始化连接为 None，以确保无论如何都能关闭连接
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
         # 查询所有站点
-        cursor.execute('SELECT * FROM address;')
-        sites = cursor.fetchall()
+        sites = Address.query.all()
 
         # 查询每个站点的设备
         device_list = []
 
         for site in sites:
-            site_id = site[0]
-            site_name = site[1]
-
-            cursor.execute('SELECT * FROM device WHERE address_id = %s;', (site_id,))
-            devices = cursor.fetchall()
-
-            # 构建站点信息和设备信息的数据结构
             site_info = {
-                'id': str(site_id),
-                'name': site_name,
+                'id': str(site.id),
+                'name': site.name,
                 'isSite': True,  # 添加isSite字段
-                'children': [{'id': str(device[0]), 'name': device[2], 'isDevice': True} for device in devices]
+                'children': [{'id': str(device.id), 'name': device.device_name, 'isDevice': True} for device in
+                             site.devices]
             }
 
             device_list.append(site_info)
@@ -209,11 +186,6 @@ def get_device_list():
             'message': '服务器错误: {}'.format(str(e))
         }
         return jsonify(response), 500
-
-    finally:
-        # 在 finally 块中关闭连接，确保无论如何都会关闭连接
-        if conn and conn.open:
-            conn.close()
 
 
 @agriculture_bp.route('/menu/list', methods=['GET'])
