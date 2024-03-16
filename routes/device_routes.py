@@ -1,4 +1,3 @@
-import json
 import time
 from datetime import timedelta
 
@@ -47,18 +46,6 @@ def get_device_list():
             'message': '服务器错误: {}'.format(str(e))
         }
         return jsonify(response), 500
-
-
-@device_bp.route('/menu/list', methods=['GET'])
-def mock_response():
-    headers = request.headers
-    access_token = headers.get('X-Access-Token')
-    if access_token == 'bqddxxwqmfncffacvbpkuxvwvqrhln':
-        with open('config.json', 'r', encoding='utf-8') as file:
-            response_data = json.load(file)['menu']
-        return jsonify({"code": 200, "data": response_data, "message": "成功"})
-    else:
-        return jsonify({"code": 401, "message": "Unauthorized"})
 
 
 # 返回站点列表

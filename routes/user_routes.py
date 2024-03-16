@@ -1,7 +1,10 @@
-from flask import Blueprint
-from flask import request, jsonify
+import json
+
+from flask import Blueprint, jsonify
+from flask import request
 
 from model import AgriUser, db
+from utils import query_and_build_nested_menu
 
 user_bp = Blueprint('user_bp', __name__)
 
@@ -79,3 +82,18 @@ def import_data():
 @user_bp.route('/user/export', methods=['POST'])
 def export_data():
     return jsonify({"code": 200, "message": "成功"})
+
+
+# 返回 JSON 格式的数据
+@user_bp.route('/menu/list', methods=['GET'])
+def mock_response():
+    headers = request.headers
+    access_token = headers.get('X-Access-Token')
+    if access_token == 'bqddxxwqmfncffacvbpkuxvwvqrhln':
+        # 查询数据库中的菜单数据并构建嵌套菜单
+        nested_menu = query_and_build_nested_menu()
+        # 将嵌套菜单转换为 JSON 格式
+        json_nested_menu = json.dumps({"code": 200, "data": nested_menu, "message": "成功"})
+        return json_nested_menu
+    else:
+        return jsonify({"code": 401, "message": "Unauthorized"})
