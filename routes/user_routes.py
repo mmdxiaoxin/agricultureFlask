@@ -1,7 +1,7 @@
 from flask import Blueprint
 from flask import request, jsonify
 
-from model import Users, db
+from model import AgriUser, db
 
 user_bp = Blueprint('user_bp', __name__)
 
@@ -14,7 +14,7 @@ def login():
     password = data.get('password')
 
     # 查询用户
-    user = Users.query.filter_by(username=username, password=password).first()
+    user = AgriUser.query.filter_by(username=username, password=password).first()
 
     if user:
         code = 200
@@ -42,13 +42,13 @@ def register():
     password = data.get('password')
 
     # 检查用户名是否已存在
-    existing_user = Users.query.filter_by(username=username).first()
+    existing_user = AgriUser.query.filter_by(username=username).first()
     if existing_user:
         code = 500
         message = '用户名已存在'
     else:
         # 创建新用户
-        new_user = Users(username=username, password=password)
+        new_user = AgriUser(username=username, password=password)
         db.session.add(new_user)
         db.session.commit()
         code = 200

@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from datetime import datetime, timedelta
 
 import pymysql
 import requests
@@ -8,7 +9,7 @@ from flask import Blueprint
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-from model import Users, Address, db, Device
+from model import db, AgriDevice, AgriUser, AgriUserMenu, AgriMenu, AgriSite, AgriSensorData
 from routes import routes_bp
 from utils import get_all_columns, get_database_name, get_columns_to_select, construct_select_clause, execute_query, \
     convert_to_json, table_exists
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 # 设置数据库连接字符串
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:122600@localhost/eviroment_data?charset=utf8'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:122600@localhost/agri_monitor_db?charset=utf8'
 # 配置连接池大小（可选）
 app.config['SQLALCHEMY_POOL_SIZE'] = 10
 app.config['SQLALCHEMY_POOL_TIMEOUT'] = 30
@@ -26,22 +27,6 @@ app.config['SQLALCHEMY_POOL_RECYCLE'] = 3600
 db.init_app(app)
 
 cors = CORS(app)
-
-# 数据库连接参数
-DB_CONFIG = {
-    "host": "localhost",
-    "port": 3306,
-    "user": "root",
-    "password": "122600",
-    "database": "eviroment_data",
-    "charset": "utf8",
-}
-
-# 最大连接数
-MAX_DB_CONNECTIONS = 1000
-
-# 全局数据库连接池
-db_connections = []
 
 # 创建名为"agriculture_bp"的Blueprint，并指定前缀
 agriculture_bp = Blueprint('agriculture', __name__, url_prefix='/agriculture')
@@ -51,33 +36,12 @@ method = "0"
 model = "0"
 
 
-# 函数用于获取数据库连接
-def get_db_connection():
-    if len(db_connections) < MAX_DB_CONNECTIONS:
-        conn = pymysql.connect(**DB_CONFIG)
-        if conn is None:
-            logger.error("Failed to create a database connection.")
-            raise Exception("Failed to create a database connection.")
-        db_connections.append(conn)
-        logger.info(f"New database connection created. Total connections: {len(db_connections)}")
-        return conn
-    else:
-        # 如果连接池已满，等待并尝试重新获取连接
-        for conn in db_connections:
-            if not conn.open:
-                conn.ping(reconnect=True)
-                logger.info(f"Database connection reopened. Total connections: {len(db_connections)}")
-                return conn
-        time.sleep(1)  # 等待1秒后重试
-        return get_db_connection()
-
-
 # 获取用户设备列表
 @agriculture_bp.route("/user/deviceList", methods=['GET'])
 def get_device_list():
     try:
         # 查询所有站点
-        sites = Address.query.all()
+        sites = AgriSite.query.all()
 
         # 查询每个站点的设备
         device_list = []
@@ -85,7 +49,7 @@ def get_device_list():
         for site in sites:
             site_info = {
                 'id': str(site.id),
-                'name': site.name,
+                'name': site.site_name,
                 'isSite': True,  # 添加isSite字段
                 'children': [{'id': str(device.id), 'name': device.device_name, 'isDevice': True} for device in
                              site.devices]
@@ -127,10 +91,10 @@ def mock_response():
 def address_select():
     try:
         # 查询所有地址
-        addresses = Address.query.all()
+        sites = AgriSite.query.all()
 
         # 构建响应数据
-        rows = [{'id': address.id, 'name': address.name} for address in addresses]
+        rows = [{'id': site.id, 'name': site.site_name} for site in sites]
         response_data = {'code': 200, 'data': rows, 'message': 'Success'}
         return jsonify(response_data)
     except Exception as e:
@@ -140,84 +104,63 @@ def address_select():
 
 # 返回仪表盘数据
 @agriculture_bp.route('/device/count', methods=['GET'])
-def get_device_count():
-    conn = None
+def get_site_device_data_count():
     try:
-        conn = get_db_connection()  # 获取数据库连接
+        # 查询所有站点
+        sites = AgriSite.query.all()
 
-        # 执行查询获取设备数量
-        with conn.cursor() as cursor:
-            cursor.execute('SELECT COUNT(*) FROM device;')
-            device_count = cursor.fetchone()[0]  # 获取设备数量
-
-        # 执行查询获取站点数量
-        with conn.cursor() as cursor:
-            cursor.execute('SELECT COUNT(*) FROM env_db;')
-            site_count = cursor.fetchone()[0]  # 获取站点数量
-
-        # 查询mihoutao39表的数据记录数量
-        with conn.cursor() as cursor:
-            cursor.execute('SELECT COUNT(*) FROM mihoutao39;')
-            mihoutao39_count = cursor.fetchone()[0]  # 获取mihoutao39表的数据记录数量
-
-        # 查询pingguo42表的数据记录数量
-        with conn.cursor() as cursor:
-            cursor.execute('SELECT COUNT(*) FROM pingguo42;')
-            pingguo42_count = cursor.fetchone()[0]  # 获取pingguo42表的数据记录数量
-
-        # 查询putao41表的数据记录数量
-        with conn.cursor() as cursor:
-            cursor.execute('SELECT COUNT(*) FROM putao41;')
-            putao41_count = cursor.fetchone()[0]  # 获取putao41表的数据记录数量
-
-        # 查询shucai44表的数据记录数量
-        with conn.cursor() as cursor:
-            cursor.execute('SELECT COUNT(*) FROM shucai44;')
-            shucai44_count = cursor.fetchone()[0]  # 获取shucai44表的数据记录数量
-
-        total_number_of_device_records = mihoutao39_count + pingguo42_count + putao41_count + shucai44_count
-
+        # 初始化响应数据
         response_data = {
             'code': 200,
             'message': '成功',
             'data': {
-                'deviceCount': device_count,
-                'totalDeviceDataCount': total_number_of_device_records,
-                'siteCount': site_count,
-                'siteValues':
-                    [
-                        {
-                            'name': "武功猕猴桃试验站",
-                            'value': mihoutao39_count
-                        },
-                        {
-                            'name': "白水苹果试验站",
-                            'value': pingguo42_count
-                        },
-                        {
-                            'name': "临渭葡萄研究所",
-                            'value': putao41_count
-                        },
-                        {
-                            'name': "泾阳蔬菜示范站",
-                            'value': shucai44_count
-                        }
-                    ]
+                'deviceCount': 0,
+                'totalDeviceDataCount': 0,
+                'siteCount': len(sites),
+                'siteValues': []
             }
         }
+
+        total_device_count = 0
+        total_device_data_count = 0
+
+        for site in sites:
+            # 获取站点名称
+            site_name = site.site_name
+
+            # 查询站点对应设备的总数
+            device_count = AgriDevice.query.filter_by(site_id=site.id).count()
+
+            # 获取站点对应设备的总数据条数
+            device_data_count = AgriSensorData.query.join(AgriDevice).filter(AgriDevice.site_id == site.id).count()
+
+            # 更新总设备数和总数据条数
+            total_device_count += device_count
+            total_device_data_count += device_data_count
+
+            # 构建站点数据信息
+            site_info = {
+                'name': site_name,
+                'value': device_data_count
+            }
+
+            # 添加到响应数据中
+            response_data['data']['siteValues'].append(site_info)
+
+        # 更新响应数据中的总设备数和总数据条数
+        response_data['data']['deviceCount'] = total_device_count
+        response_data['data']['totalDeviceDataCount'] = total_device_data_count
 
         return jsonify(response_data)
 
     except Exception as e:
+        # 处理异常
         response_data = {
             'code': 500,
-            'message': f'服务器错误: {str(e)}'
+            'message': '服务器错误: ' + str(e),
+            'data': {}
         }
-        return jsonify(response_data), 500
-
-    finally:
-        if conn and conn.open:
-            conn.close()
+        return jsonify(response_data)
 
 
 # 返回传感器设备列表（根据地区）
@@ -228,7 +171,7 @@ def device_select():
         address_id = request.args.get("address_id", default=1, type=int)
 
         # 查询符合条件的设备列表
-        devices = Device.query.filter_by(address_id=address_id).all()
+        devices = AgriDevice.query.filter_by(site_id=address_id).all()
 
         # 构建响应数据
         rows = [{'id': device.id, 'device_name': device.device_name,
@@ -246,45 +189,39 @@ def device_select():
 @agriculture_bp.route("/data/show", methods=['GET'])
 def data_base():
     try:
-        with get_db_connection() as conn:
-            cur = conn.cursor()
-            device_id = request.args.get("deviceId", default=1, type=str)
-            hour = request.args.get("hour", default=24, type=int)
-            columns_param = request.args.get("columns")
+        device_id = request.args.get("deviceId", default=1, type=int)
+        hour = request.args.get("hour", default=12, type=int)  # 获取传递的小时数，默认为12
+        columns = request.args.get("columns", None)  # 获取用户指定的列
 
-            dbname = get_database_name(cur, device_id)
-            if not table_exists(cur, dbname):
-                response_data = {
-                    'code': 404,
-                    'message': 'No data found',
-                }
-                return jsonify(response_data)
+        # 查询特定设备的最新数据的时间
+        latest_data_time = AgriSensorData.query.filter_by(device_id=device_id).order_by(
+            AgriSensorData.createTime.desc()).first().createTime
 
-            all_columns = get_all_columns(cur, dbname)
-            columns_to_select = get_columns_to_select(columns_param, all_columns)
+        # 计算起始时间，即最新数据时间往前推12小时
+        start_time = latest_data_time - timedelta(hours=hour)
 
-            select_clause = construct_select_clause(columns_to_select)
-            results = execute_query(cur, dbname, select_clause, hour)
+        # 构建查询条件，即设备ID和时间范围
+        query = AgriSensorData.query.filter_by(device_id=device_id)
 
-            json_data = convert_to_json(results, columns_to_select)
+        # 添加时间范围过滤条件
+        query = query.filter(AgriSensorData.createTime >= start_time)
 
-            response_data = {
-                'code': 200,
-                'message': 'Success',
-                'data': json_data
-            }
+        # 执行查询
+        datas = query.all()
 
-            return jsonify(response_data)
-
-    except IndexError:
+        # 获取用户指定的列，如果没有指定则返回所有列
+        columns_to_select = columns.split(",") if columns else [column.name for column in
+                                                                AgriSensorData.__table__.columns]
+        # 构建响应数据
         response_data = {
-            'code': 404,
-            'message': 'No data found',
+            'code': 200,
+            'message': '成功',
+            'data': [data.to_dict(columns_to_select) for data in datas]  # 将查询结果转换为字典列表
         }
         return jsonify(response_data)
 
     except Exception as e:
-        print("服务器错误:", str(e))
+        # 处理异常情况
         response_data = {
             'code': 500,
             'message': '服务器错误: {}'.format(str(e))
@@ -295,62 +232,36 @@ def data_base():
 # 返回实时数据或者设备属性等等
 @agriculture_bp.route("/device/api", methods=['GET'])
 def device_api():
-    conn = None  # 初始化连接为 None，以确保无论如何都能关闭连接
     try:
-        conn = get_db_connection()
-        # 创建数据库游标
-        cur = conn.cursor()
-        device_id = request.args.get("id", default=1, type=str)
+        device_id = request.args.get("id", default=1, type=int)
         api_method = request.args.get("method", default=1, type=str)
-        cur.execute("SELECT api,business_id, device_id, equipment, version, collect_run FROM device WHERE id = %s;",
-                    device_id)
-        conn.commit()
-        res_device = cur.fetchone()
-        if res_device is None:
-            print("未查询到此设备")
-            response = {
-                "code": 404,
-                "message": "未查询到此设备"
-            }
-            return jsonify(response), 404
 
-        if res_device[5] == '0':
-            response = {
-                "code": 403,
-                "message": "没有访问权限"
-            }
-            return jsonify(response), 403
+        # 查询设备信息
+        device = AgriDevice.query.filter_by(id=device_id).first()
+        if not device:
+            return jsonify({'code': 404, 'message': '未查询到此设备'}), 404
 
-        res_device[0] + '/' + api_method + '?' + 'Version=' + res_device[4] + '&Business=' + res_device[
-            1] + '&Equipment=' + res_device[3] + '&RequestTime=' + str(
-            int(time.time())) + '&Value={ "page": 1,"length": 5,"deviceId":' + res_device[2] + '}'
-        # device_api_last_index = res_api.rfind("/")
-        device_url = res_device[0] + '/' + api_method
-        value = "{ 'page': 1,'length': 5, 'deviceId': " + res_device[2] + " }"
-        device_params = {
-            "Version": res_device[4],
-            "Business": res_device[1],
-            "Equipment": res_device[3],
+        # 检查权限
+        if device.collect_run == '0':
+            return jsonify({'code': 403, 'message': '没有访问权限'}), 403
+
+        # 构建请求参数
+        params = {
+            "Version": device.version,
+            "Business": device.business_id,
+            "Equipment": device.equipment,
             "RequestTime": str(int(time.time())),
-            "Value": value
+            "Value": '{ "page": 1, "length": 5, "deviceId": ' + str(device.device_id) + ' }'
         }
-        result_data = requests.get(device_url, device_params)
-        result = json.loads(result_data.text)
+
+        # 发送请求
+        response = requests.get(device.api + '/' + api_method, params=params)
+        result = response.json()
 
         return jsonify(result)
 
     except Exception as e:
-        # 处理异常，您可以根据需要进行记录或其他操作
-        response_data = {
-            'code': 500,
-            'message': '服务器错误: {}'.format(str(e))
-        }
-        return jsonify(response_data), 500
-
-    finally:
-        # 在 finally 块中关闭连接，确保无论如何都会关闭连接
-        if conn and conn.open:
-            conn.close()
+        return jsonify({'code': 500, 'message': f'服务器错误: {str(e)}'}), 500
 
 
 if __name__ == "__main__":
