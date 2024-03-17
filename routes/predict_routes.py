@@ -9,7 +9,7 @@ from flask import request, jsonify, Blueprint
 predict_bp = Blueprint('predict_bp', __name__)
 
 method = 0
-model = 0
+selected_model = 0
 
 
 @predict_bp.route('/predict/predict-method', methods=['POST'])
@@ -28,12 +28,12 @@ def predict_method():
 
 @predict_bp.route('/predict/models', methods=['POST'])
 def chose_model():
-    global model
+    global selected_model
     model_value = request.json.get('model')
     if model_value is not None:
         try:
-            model = int(model_value)
-            return jsonify({'code': 200, 'msg': f"Model updated to: {model}"}), 200
+            selected_model = int(model_value)
+            return jsonify({'code': 200, 'msg': f"Model updated to: {selected_model}"}), 200
         except ValueError:
             return jsonify({'code': 400, 'msg': "无效的模型值。它应该是一个数字"}), 400
     else:
@@ -43,17 +43,16 @@ def chose_model():
 # 给出模型预测结果
 @predict_bp.route('/predict/upload-file', methods=['POST'])
 def upload_file():
-    global model, method
+    global selected_model, method
     received_file = request.files.get('input_image')  # 使用get方法获取文件，避免出错
     if received_file:
         image_file_name = received_file.filename
         # 加载模型参数
         model_path = ""
         predictions = []
-        class_names = ()
-        if model == 0:
+        if selected_model == 2:
             model_path = './saved_model/Res_RGB.pt'
-            class_names = ('褐斑病', '斑点落叶病', '花叶病', '健康', '锈病')
+            class_names_RGB = ('褐斑病', '斑点落叶病', '花叶病', '健康', '锈病')
             # 加载 ResNet 模型
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             model = ResNet(5)  # 实例化模型对象
@@ -63,10 +62,10 @@ def upload_file():
             img = torch.randn(1, 3, 64, 64)  # 第一个1是batch_size，这里随机生成了一个数据
             result = model(img)  # 传入图像返回类别序号
             probabilities = torch.softmax(result, dim=1).tolist()[0]
-            predictions = [{class_names[i]: probabilities[i]} for i in range(len(class_names))]
-        elif model == 1:
+            predictions = [{"value": probabilities[i], "name": class_names_RGB[i]} for i in range(len(class_names_RGB))]
+        elif selected_model == 1:
             model_path = './saved_model/Net2_59.pt'
-            class_names = ('花叶病', '健康', '锈病')
+            class_names_NET = ('花叶病', '健康', '锈病')
             # 加载 Net2 模型
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             model = Net2(125, 3)  # 实例化模型对象
@@ -76,7 +75,8 @@ def upload_file():
             img = torch.randn(1, 1, 125, 64, 64)  # 第一个1是batch_size，这里随机生成了一个数据
             result = model(img)  # 传入图像返回类别序号
             probabilities = torch.softmax(result, dim=1).tolist()[0]
-            predictions = [{class_names[i]: probabilities[i]} for i in range(len(class_names))]
+            print(probabilities)
+            predictions = [{"value": probabilities[i], "name": class_names_NET[i]} for i in range(len(class_names_NET))]
 
         return jsonify({'code': 200, 'data': {'predictions': predictions}, 'msg': "文件上传成功"})
     else:
