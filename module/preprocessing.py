@@ -83,31 +83,3 @@ def DT2(data):
     l.fit(x.T, data.T)
     trends = l.predict(x.T).T
     return data - trends
-
-
-# 根据参数选择模型
-def choose_method(method, data):
-    if method == "0":
-        return nodo(data)
-    elif method == "1":
-        return MMS(data)
-    elif method == "2":
-        return SS(data)
-    elif method == "3":
-        return CT(data)
-    elif method == "4":
-        return SNV(data)
-    elif method == "5":
-        return MA(data)
-    elif method == "6":
-        return SG(data)
-    elif method == "7":
-        return D1(data)
-    elif method == "8":
-        return D2(data)
-    elif method == "9":
-        return DT(data)
-    elif method == "10":
-        return DT2(data)
-    else:
-        return None

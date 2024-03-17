@@ -8,29 +8,36 @@ from flask import request, jsonify, Blueprint
 
 predict_bp = Blueprint('predict_bp', __name__)
 
+method = 0
+model = 0
 
-# 选择合适的预处理方式
+
 @predict_bp.route('/predict/predict-method', methods=['POST'])
 def predict_method():
     global method
     method_value = request.json.get('method')
     if method_value is not None:
-        method = method_value
-        return jsonify({'code': 200, 'msg': f"Method updated to {method}"}), 200
+        try:
+            method = method_value
+            return jsonify({'code': 200, 'msg': f"Method updated to {method}"}), 200
+        except ValueError:
+            return jsonify({'code': 400, 'msg': "无效的方法值。它应该是一个数字"}), 400
     else:
-        return jsonify({'code': 400, 'msg': "No method parameter provided in the request"}), 400
+        return jsonify({'code': 400, 'msg': "请求中未提供方法参数"}), 400
 
 
-# 选择合适的模型
 @predict_bp.route('/predict/models', methods=['POST'])
 def chose_model():
     global model
     model_value = request.json.get('model')
     if model_value is not None:
-        model = model_value
-        return jsonify({'code': 200, 'msg': f"Model updated to: {model}"}), 200
+        try:
+            model = int(model_value)
+            return jsonify({'code': 200, 'msg': f"Model updated to: {model}"}), 200
+        except ValueError:
+            return jsonify({'code': 400, 'msg': "无效的模型值。它应该是一个数字"}), 400
     else:
-        return jsonify({'code': 400, 'msg': "No model parameter provided in the request"}), 400
+        return jsonify({'code': 400, 'msg': "请求中未提供模型参数"}), 400
 
 
 # 给出模型预测结果
@@ -73,7 +80,7 @@ def upload_file():
 
         return jsonify({'code': 200, 'data': {'predictions': predictions}, 'msg': "文件上传成功"})
     else:
-        return jsonify({'code': 400, 'msg': "No file provided in the request"})
+        return jsonify({'code': 400, 'msg': "请求中未提供任何文件"})
 
 
 # 沿波段方向绘制某一像素波谱曲线
