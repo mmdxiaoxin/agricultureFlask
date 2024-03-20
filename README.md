@@ -1,151 +1,275 @@
 ## 农业监控系统 API 文档
 
-### 欢迎页面
-
-- **URL:** /
-- **请求方法:** GET
-- **描述:** 获取欢迎消息。
-
 ### 用户登录
 
-- **URL:** /login
-- **请求方法:** POST
-- **描述:** 用户登录接口，根据用户名和密码验证用户身份并返回访问令牌。
-- 请求参数:
-  - `username` (字符串) - 用户名。
-  - `password` (字符串) - 密码。
-- 响应:
-  - `code` (整数) - 响应状态码。
-  - `data` (对象) - 响应数据对象，包含访问令牌 (`access_token`)。
-  - `message` (字符串) - 响应消息。
+- **URL：** `/login`
+- **请求方法：** POST
+- 请求参数：
+  - `username` (string): 用户名
+  - `password` (string): 密码
+- 响应：
+  - `code` (int): 响应状态码，200 表示成功，500 表示失败
+  - `data` (object): 返回数据，包含 `access_token` 字段
+  - `message` (string): 响应信息
 
-### 用户登出
+### 用户注册
 
-- **URL:** /logout
-- **请求方法:** POST
-- **描述:** 用户登出接口，注销用户。
+- **URL：** `/register`
+- **请求方法：** POST
+- 请求参数：
+  - `username` (string): 用户名
+  - `password` (string): 密码
+- 响应：
+  - `code` (int): 响应状态码，200 表示成功，500 表示失败
+  - `message` (string): 响应信息
 
-### 导入用户数据
+### 用户注销
 
-- **URL:** /user/import
-- **请求方法:** POST
-- **描述:** 导入用户数据。
+- **URL：** `/logout`
+- **请求方法：** POST
+- 响应：
+  - `code` (int): 响应状态码，200 表示成功
+  - `message` (string): 响应信息
 
-### 导出用户数据
+### 用户数据导入
 
-- **URL:** /user/export
-- **请求方法:** POST
-- **描述:** 导出用户数据。
+- **URL：** `/user/import`
+- **请求方法：** POST
+- 响应：
+  - `code` (int): 响应状态码，200 表示成功
+  - `message` (string): 响应信息
 
-### 获取地区列表
+### 用户数据导出
 
-- **URL:** /agriculture/address/select
-- **请求方法:** GET
-- **描述:** 获取所有地区列表。
-- 响应:
-  - `code` (整数) - 响应状态码。
-  - `data` (数组) - 包含地区信息的数组。
-  - `message` (字符串) - 响应消息。
+- **URL：** `/user/export`
+- **请求方法：** POST
+- 响应：
+  - `code` (int): 响应状态码，200 表示成功
+  - `message` (string): 响应信息
 
-### 获取传感器设备列表
+### 菜单列表
 
-- **URL:** /agriculture/device/select
-- **请求方法:** GET
-- **描述:** 根据地区获取传感器设备列表。
-- 请求参数:
-  - `address_id` (字符串) - 地区 ID。
-- 响应:
-  - `code` (整数) - 响应状态码。
-  - `data` (数组) - 包含传感器设备信息的数组。
-  - `message` (字符串) - 响应消息。
+- **URL：** `/menu/list`
+- **请求方法：** GET
+- 请求头：
+  - `X-Access-Token` (string): 访问令牌
+- 响应：
+  - `code` (int): 响应状态码，200 表示成功，401 表示未授权
+  - `data` (object): 返回数据，包含菜单列表信息
+  - `message` (string): 响应信息
 
-### 获取设备列表
+### 获取用户设备列表
 
-- **URL:** /agriculture/user/deviceList
-- **请求方法:** GET
-- **描述:** 获取用户的设备列表。
-- 响应:
-  - `code` (整数) - 响应状态码。
-  - `data` (数组) - 包含设备信息的数组。
-  - `message` (字符串) - 响应消息。
+- **URL：** `/user/deviceList`
 
-### 获取菜单列表
+- **请求方法：** GET
 
-- **URL:** /agriculture/menu/list
-- **请求方法:** GET
-- **描述:** 获取用户菜单列表。
-- 请求头:
-  - `X-Access-Token` (字符串) - 用户访问令牌。
-- 响应:
-  - `code` (整数) - 响应状态码。
-  - `data` (数组) - 包含菜单信息的数组。
-  - `message` (字符串) - 响应消息。
+- 响应：
 
-### 获取历史数据
+  - `code` (int): 响应状态码，200 表示成功，500 表示失败
 
-- **URL:** /agriculture/data/show
-- **请求方法:** GET
-- **描述:** 获取最新的 100 条历史数据。
-- 请求参数:
-  - `deviceId` (字符串) - 设备 ID。
-- 响应:
-  - `code` (整数) - 响应状态码。
-  - `data` (数组) - 包含历史数据的数组。
-  - `message` (字符串) - 响应消息。
+  - ```
+    data
+    ```
 
-### 获取摄像头列表
+     (list): 设备列表
 
-- **URL:** /agriculture/camera/select
-- **请求方法:** GET
-- **描述:** 获取摄像头列表。
-- 请求参数:
-  - `address_id` (字符串) - 地区 ID。
-- 响应:
-  - `code` (整数) - 响应状态码。
-  - `data` (数组) - 包含摄像头信息的数组。
-  - `message` (字符串) - 响应消息。
+    - `id` (str): 站点或设备 ID
 
-### 获取摄像头 URL
+    - `name` (str): 站点或设备名称
 
-- **URL:** /agriculture/camera/url
-- **请求方法:** GET
-- **描述:** 获取摄像头的 URL。
-- 请求参数:
-  - `id` (字符串) - 摄像头 ID。
-- 响应:
-  - `code` (整数) - 响应状态码。
-  - `data` (对象) - 包含摄像头 URL 信息。
-  - `message` (字符串) - 响应消息。
+    - `isSite` (bool): 是否为站点
 
-### 控制摄像头
+    - ```
+      children
+      ```
 
-- **URL:** /agriculture/camera/control
-- **请求方法:** GET
-- **描述:** 控制摄像头的方向和速度。
-- 请求参数:
-  - `id` (字符串) - 摄像头 ID。
-  - `direction` (整数) - 控制方向。
-  - `speed` (整数) - 控制速度。
-- 响应:
-  - `code` (整数) - 响应状态码。
-  - `data` (对象) - 包含摄像头控制结果信息。
-  - `message` (字符串) - 响应消息。
+       (list): 子设备列表，每个元素包含以下字段
 
-### 设备 API 请求
+      - `id` (str): 设备 ID
+      - `name` (str): 设备名称
+      - `isDevice` (bool): 是否为设备
 
-- **URL:** /agriculture/device/api
-- **请求方法:** GET
-- **描述:** 发送设备 API 请求。
-- 请求参数:
-  - `id` (字符串) - 设备 ID。
-  - `method` (字符串) - API 请求方法。
-- 响应:
-  - `code` (整数) - 响应状态码。
-  - `data` (对象) - 包含设备 API 响应数据。
-  - `message` (字符串) - 响应消息。
+  - `message` (string): 响应信息
 
-### 关于项目
+### 返回站点列表
 
-- **URL:** /about/index
-- **请求方法:** GET
-- **描述:** 获取关于项目信息。
+- **URL：** `/address/select`
+
+- **请求方法：** GET
+
+- 响应：
+
+  - `code` (int): 响应状态码，200 表示成功，500 表示失败
+
+  - ```
+    data
+    ```
+
+     (list): 地址列表，每个元素包含以下字段
+
+    - `id` (int): 地址 ID
+    - `name` (str): 地址名称
+
+  - `message` (string): 响应信息
+
+### 返回仪表盘数据
+
+- **URL：** `/device/count`
+
+- **请求方法：** GET
+
+- 响应：
+
+  - `code` (int): 响应状态码，200 表示成功，500 表示失败
+
+  - ```
+    data
+    ```
+
+     (object): 仪表盘数据
+
+    - `deviceCount` (int): 设备总数
+
+    - `totalDeviceDataCount` (int): 总数据条数
+
+    - `siteCount` (int): 站点总数
+
+    - ```
+      siteValues
+      ```
+
+       (list): 站点数据列表，每个元素包含以下字段
+
+      - `name` (str): 站点名称
+      - `value` (int): 设备数据条数
+
+  - `message` (string): 响应信息
+
+### 返回传感器设备列表（根据地区）
+
+- **URL：** `/device/select`
+
+- **请求方法：** GET
+
+- 请求参数：
+
+  - `address_id` (int): 地址 ID
+
+- 响应：
+
+  - `code` (int): 响应状态码，200 表示成功，500 表示失败
+
+  - ```
+    data
+    ```
+
+     (list): 设备列表，每个元素包含以下字段
+
+    - `id` (int): 设备 ID
+    - `device_name` (str): 设备名称
+    - `business_id` (str): 业务 ID
+    - `device_id` (str): 设备 ID
+    - `collect_run` (str): 数据采集运行状态
+
+  - `message` (string): 响应信息
+
+### 根据参数返回数据库中的数据
+
+- **URL：** `/data/show`
+- **请求方法：** GET
+- 请求参数：
+  - `deviceId` (int): 设备 ID
+  - `hour` (int): 小时数，默认为 12
+  - `columns` (string): 用户指定的列，逗号分隔
+- 响应：
+  - `code` (int): 响应状态码，200 表示成功，500 表示失败
+  - `data` (list): 数据列表，每个元素为字典，包含请求的列数据
+  - `message` (string): 响应信息
+
+### 返回实时数据或者设备属性等
+
+- **URL：** `/device/api`
+- **请求方法：** GET
+- 请求参数：
+  - `id` (int): 设备 ID
+  - `method` (str): API 方法名
+- 响应：
+  - 根据请求的 API 方法返回相应数据，具体格式由 API 决定。
+
+### 更新预测方法
+
+- **URL：** `/predict/predict-method`
+
+- **请求方法：** POST
+
+- 请求参数：
+
+  - `method` (int): 预测方法编号
+
+- 请求体示例：
+
+  ```
+  jsonCopy code{
+    "method": 0
+  }
+  ```
+
+- 响应：
+
+  - `code` (int): 响应状态码，200 表示成功，400 表示请求错误
+  - `msg` (string): 响应消息
+
+### 更新选择的模型
+
+- **URL：** `/predict/models`
+
+- **请求方法：** POST
+
+- 请求参数：
+
+  - `model` (int): 模型编号
+
+- 请求体示例：
+
+  ```json
+  {
+    "model": 0
+  }
+  ```
+
+- 响应：
+
+  - `code` (int): 响应状态码，200 表示成功，400 表示请求错误
+  - `msg` (string): 响应消息
+
+### 上传文件进行预测
+
+- **URL：** `/predict/upload-file`
+
+- **请求方法：** POST
+
+- 请求参数：
+
+  - `input_image` (file): 输入图像文件
+
+- 响应：
+
+  - `code` (int): 响应状态码，200 表示成功，400 表示请求错误
+
+  - ```
+    data
+    ```
+
+     (object): 预测结果数据
+
+    - ```
+      predictions
+      ```
+
+       (list): 预测结果列表，每个元素包含以下字段
+
+      - `value` (float): 预测结果概率值
+      - `name` (string): 预测结果类别名称
+
+  - `msg` (string): 响应消息
