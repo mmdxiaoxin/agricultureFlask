@@ -2,7 +2,7 @@
 
 ### 项目介绍
 
-该项目是一个基于 Flask 的农业监控系统后端，旨在提供农业数据的采集、预测和用户管理功能。通过该系统，用户可以上传农业数据进行预测。
+该项目是一个基于 Flask 的农业监控系统后端，旨在提供农业数据的采集、预测和用户管理功能。通过该系统，用户可以上传农业数据进行预测。其前端为：[mmdxiaoxin/Agricultural: 使用了Greek-admin模板进行搭建的农业监控系统。 (github.com)](https://github.com/mmdxiaoxin/Agricultural)
 
 **主要特点和功能包括：**
 
