@@ -224,8 +224,8 @@
 
 - 请求体示例：
 
-  ```
-  jsonCopy code{
+  ```json
+  {
     "method": 0
   }
   ```
