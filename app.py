@@ -1,3 +1,7 @@
+import os
+
+os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
+
 import logging
 
 from flask import Flask
@@ -9,6 +13,8 @@ from routes import routes_bp
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.DEBUG)
 
 app = Flask(__name__)
 app.config.from_object(Config)

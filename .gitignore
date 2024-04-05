@@ -5,9 +5,6 @@ __pycache__/
 # 忽略IDE项目文件
 .idea/
 
-# 忽略模型文件夹下的训练好的模型
-saved_model/
-
 # 忽略本地配置文件
 config/*.pyc
 config/__pycache__/

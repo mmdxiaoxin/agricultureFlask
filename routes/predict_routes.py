@@ -5,11 +5,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 from flask import request, jsonify, Blueprint
+from module.processing import Model
 
 predict_bp = Blueprint('predict_bp', __name__)
 
-method = 0
-selected_model = 0
+method = "0"
+selected_model = "2"
 
 
 @predict_bp.route('/predict/predict-method', methods=['POST'])
@@ -32,7 +33,7 @@ def chose_model():
     model_value = request.json.get('model')
     if model_value is not None:
         try:
-            selected_model = int(model_value)
+            selected_model = model_value
             return jsonify({'code': 200, 'msg': f"Model updated to: {selected_model}"}), 200
         except ValueError:
             return jsonify({'code': 400, 'msg': "无效的模型值。它应该是一个数字"}), 400
@@ -50,56 +51,68 @@ def upload_file():
         # 加载模型参数
         model_path = ""
         predictions = []
-        if selected_model == 2:
-            model_path = './saved_model/Res_RGB.pt'
+        processingModel = Model(received_file.read(), image_file_name)
+        # print(processingModel.inputFile)
+        rgbImage = None
+        maskImage = None
+        NoBackgroundImage = None
+        spectral_curve_image = None
+
+        if selected_model == "2":
+            model_path = 'D:/mycode/Python/agricultureFlask/saved_model/Res_RGB.pt'
             class_names_RGB = ('褐斑病', '斑点落叶病', '花叶病', '健康', '锈病')
             # 加载 ResNet 模型
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             model = ResNet(5)  # 实例化模型对象
             model.load_state_dict(torch.load(model_path, map_location=device))  # 加载模型参数
             model.eval()  # 设置模型为评估模式
-            # 随机生成一个数据并进行预测
-            img = torch.randn(1, 3, 64, 64)  # 第一个1是batch_size，这里随机生成了一个数据
+            # # 随机生成一个数据并进行预测
+            # img = torch.randn(1, 3, 64, 64)  # 第一个1是batch_size，这里随机生成了一个数据
+            # 获取图片数据进行预测
+            img = processingModel.getNdarray(selected_model, "0")
+            # 获取预测图像的二进制文件流
+            # rgbImage, maskImage, NoBackgroundImage, spectral_curve_image = processingModel.getImage()
+            # tensor = torch.from_numpy(img)
+            # print(rgbImage)
             result = model(img)  # 传入图像返回类别序号
             probabilities = torch.softmax(result, dim=1).tolist()[0]
             predictions = [{"value": probabilities[i], "name": class_names_RGB[i]} for i in range(len(class_names_RGB))]
-        elif selected_model == 1:
-            model_path = './saved_model/Net2_59.pt'
+        elif selected_model == "1":
+            model_path = 'D:/mycode/Python/agricultureFlask/saved_model/Net2_59.pt'
             class_names_NET = ('花叶病', '健康', '锈病')
             # 加载 Net2 模型
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             model = Net2(125, 3)  # 实例化模型对象
             model.load_state_dict(torch.load(model_path, map_location=device))  # 加载模型参数
             model.eval()  # 设置模型为评估模式
-            # 随机生成一个数据并进行预测
-            img = torch.randn(1, 1, 125, 64, 64)  # 第一个1是batch_size，这里随机生成了一个数据
-            result = model(img)  # 传入图像返回类别序号
+            # # 随机生成一个数据并进行预测
+            # img = torch.randn(1, 1, 125, 64, 64)  # 第一个1是batch_size，这里随机生成了一个数据
+            # 获取图片数据进行预测
+            img = processingModel.getNdarray(selected_model, method)
+            l, w, b = img.shape
+            img = img.reshape(1, 1, l, w, b)
+            if img is None:
+                print("fail")
+            # 获取预测图像的二进制文件流
+            rgbImage, maskImage, NoBackgroundImage, spectral_curve_image = processingModel.getImage()
+            tensor = torch.from_numpy(img)
+            result = model(tensor)  # 传入图像返回类别序号
             probabilities = torch.softmax(result, dim=1).tolist()[0]
             print(probabilities)
             predictions = [{"value": probabilities[i], "name": class_names_NET[i]} for i in range(len(class_names_NET))]
 
-        return jsonify({'code': 200, 'data': {'predictions': predictions}, 'msg': "文件上传成功"})
+        rgbImage = str(rgbImage)  # 例如，将图像数据转换为字符串
+        maskImage = str(maskImage)  # 例如，将图像数据转换为字符串
+        NoBackgroundImage = str(NoBackgroundImage)  # 例如，将图像数据转换为字符串
+        spectral_curve_image = str(spectral_curve_image)  # 例如，将图像数据转换为字符串
+        predictions = str(predictions)
+        return jsonify({'code': 200, 'data': {'predictions': predictions,
+                                              'rgbImage': rgbImage,
+                                              'maskImage': maskImage,
+                                              'NoBackgroundImage': NoBackgroundImage,
+                                              'spectral_curve_image': spectral_curve_image}, 'msg': "文件上传成功"})
     else:
         return jsonify({'code': 400, 'msg': "请求中未提供任何文件"})
-
-
-# 沿波段方向绘制某一像素波谱曲线
-def spectra_plot(img, position, image_file_name):
-    x, y = position
-    # 提取光谱数据
-    spectra = img[x, y, :].reshape(img.shape[2])
-
-    # 创建波段索引
-    wavelengths = np.arange(0, img.shape[2])
-
-    # 绘制光谱曲线
-    plt.plot(wavelengths, spectra)
-    plt.xlabel('Wavelength')
-    plt.ylabel('Intensity')
-    plt.title(f'Spectral Curve of ({x},{y})')
-    file_name = f"./result/spectral_curve_image/{image_file_name}"
-    plt.savefig(file_name)
-    return file_name
 
 
 class ResNet(nn.Module):
@@ -165,9 +178,10 @@ class InceptionResBlock_SE(nn.Module):
         self.scale = 0.1
 
     def forward(self, x):
-        n, _, b, w, h = x.shape
-        se_weight = self.se(x.view(n, b, w, h))
-        x = x * se_weight.view(n, -1, b, 1, 1)
+        # n, _, b, w, h = x.shape
+        # print(n, b, w, h)
+        # se_weight = self.se(x.view(n, b, w, h))
+        # x = x * se_weight.view(n, -1, b, 1, 1)
         x1 = self.branch1x1(x)
         x2 = self.branch3x3(self.branch2_1(x))
         x3 = self.branch5x5(self.branch3_1(x))

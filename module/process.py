@@ -65,17 +65,23 @@ class Model(object):
         :param methodType: 预处理方法种类
         :return: 预处理完成矩阵
         """
-        if modelType == "2":
+        if modelType == 2:
             input_image = get_imageNdarray(self.inputFile)
             return process_RGBNdarray(input_image)
-        elif modelType == "1":
+        elif modelType == 1:
             self.get_file_Narray()
-            self.img.transpose(2, 1, 0)
-            l, w, b = self.img.shape
-            reshaped_data = self.img.reshape((l * w, b))
-            reshaped_data = process_Ndarry(methodType, reshaped_data)
-            reshaped_data = reshaped_data.reshape(l, w, b)
-            return reshaped_data
+            # 转换为灰度图像
+            if self.img.ndim == 2:
+                self.img = self.img[..., np.newaxis]
+
+            # 转换为彩色图像
+            if self.img.shape[2] == 1:
+                self.img = np.repeat(self.img, 3, axis=-1)
+
+            # 确保 data 的形状是 (height * width, channels)
+            # 这里我们假设 channels 是 3，即彩色图像
+            reshaped_data = self.img.reshape(-1, self.img.shape[2])
+            return process_Ndarry(methodType, reshaped_data)
         else:
             return None
 
@@ -186,7 +192,7 @@ def process_RGBNdarray(input_image):
     img_chw = preprocess(input_image)
     _, h, w = img_chw.shape
     img_chw = img_chw.reshape(1, 3, h, w)
-    # print(img_chw.shape)
+    print(img_chw.shape)
     return img_chw  # chw:channel height width
 
 
