@@ -1,18 +1,11 @@
+import base64
 import io
 import os
-import cv2
-
 import numpy as np
-import pandas as pd
-import requests
 import skimage.io
 import torchvision.transforms as transforms
 from PIL import Image
 from matplotlib import pyplot as plt
-from modelscope.pipelines import pipeline
-from scipy import signal
-from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 from module.preprocessing import nodo, MMS, SS, CT, SNV, MA, SG, D1, D2, DT, DT2
 
@@ -26,9 +19,7 @@ class Model(object):
         :param imageFileName:输入文件名
         """
         self.rgb_img = None
-        self.NoBackgroundImage = None
         self.rgbImage = None
-        self.maskImage = None
         self.img = None
         self.inputFile = inputFile
         self.imageFileName = imageFileName
@@ -67,12 +58,15 @@ class Model(object):
         """
         if modelType == "2":
             input_image = get_imageNdarray(self.inputFile)
+            self.img = input_image
             return process_RGBNdarray(input_image)
         elif modelType == "1":
             self.get_file_Narray()
             self.img.transpose(2, 1, 0)
             l, w, b = self.img.shape
+            print(self.img.shape)
             reshaped_data = self.img.reshape((l * w, b))
+            print(reshaped_data)
             reshaped_data = process_Ndarry(methodType, reshaped_data)
             reshaped_data = reshaped_data.reshape(l, w, b)
             return reshaped_data
@@ -82,19 +76,14 @@ class Model(object):
     # 获取所有图像
     def getImage(self):
         self.getRGBImage()
-        self.getMaskImage()
         self.spectral_curve_image = spectra_plot(self.img, (0, 0), self.file_name)
         rgb_data = getImageStream(self.rgbImage)
-        mask_data = getImageStream(self.maskImage)
-        nbg_data = getImageStream(self.NoBackgroundImage)
         sc_data = getImageStream(self.spectral_curve_image)
-        return rgb_data, mask_data, nbg_data, sc_data
+        return rgb_data, sc_data
 
     # 删除临时图像
     def deleteImage(self):
         os.remove(self.rgbImage)
-        os.remove(self.NoBackgroundImage)
-        os.remove(self.maskImage)
         os.remove(self.spectral_curve_image)
 
     # 获取RGB图像
@@ -123,27 +112,6 @@ class Model(object):
         plt.imshow(rgb_img)
         plt.imsave(self.rgbImage, rgb_img)
 
-    # 获取掩膜图像和去除背景后的数据
-    def getMaskImage(self):
-        """
-        ## 调用分割模型
-        """
-        # 使用分割管道处理图像
-        p = pipeline('shop-segmentation', 'damo/cv_vitb16_segmentation_shop-seg')
-        mask = p(self.rgb_img)
-        mask = mask['masks']
-
-        # 掩膜图像
-        self.maskImage = "../result/mask_image.png"
-        plt.imshow(mask)
-        plt.imsave(self.maskImage, mask)
-        # 掩膜乘以原图像，得到去掉背景的数据
-        Mask = mask.reshape(mask.shape[0], mask.shape[1], 1)
-        masked_img = Mask * self.rgb_img
-        self.NoBackgroundImage = "../result/no_background_image.png"
-        plt.imshow(masked_img)
-        plt.imsave(self.NoBackgroundImage, masked_img)
-
 
 # 根据文件路径获取二进制文件流
 def getImageStream(filePath):
@@ -155,6 +123,8 @@ def getImageStream(filePath):
     with open(filePath, "rb") as file:
         file_content = file.read()
     if file_content:
+        file_content = base64.b64encode(file_content)
+        file_content = file_content.decode('utf-8')
         return file_content
     else:
         return None
@@ -186,7 +156,6 @@ def process_RGBNdarray(input_image):
     img_chw = preprocess(input_image)
     _, h, w = img_chw.shape
     img_chw = img_chw.reshape(1, 3, h, w)
-    # print(img_chw.shape)
     return img_chw  # chw:channel height width
 
 
@@ -241,24 +210,3 @@ def spectra_plot(img, position, image_file_name):
     plt.savefig(file_name)
     return file_name
 
-
-if __name__ == '__main__':
-    with open("D:/work/B_0.tif", "rb") as tif_image_file:
-        tif_image = tif_image_file.read()
-    tifModel = Model(tif_image, "B_0.tif")
-
-    # 测试读取文件流进行预处理
-    tifModel.get_file_Narray()
-    # RGB图像生成
-    # tifModel.getRGBImage()
-    # print(tifModel.rgbImage)
-
-    # Mask图像及去除背景图像
-    # tifModel.getMaskImage()
-
-    # 图像生成测试
-    rgb_data, mask_data, nbg_data, sc_data = tifModel.getImage()
-    print(rgb_data)
-    # 获取概率数组
-    print(tifModel.getNdarray(1, "1"))
-    tifModel.deleteImage()

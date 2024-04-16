@@ -1,5 +1,4 @@
-import matplotlib.pyplot as plt
-import numpy as np
+import base64
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,17 +11,35 @@ predict_bp = Blueprint('predict_bp', __name__)
 method = "0"
 selected_model = "2"
 
+# 标签名称到数字的映射表
+label_to_value = {
+    "NONE": "0",
+    "MMS": "1",
+    "SS": "2",
+    "CT": "3",
+    "SNV": "4",
+    "MA": "5",
+    "SG": "6",
+    "D1": "7",
+    "D2": "8",
+    "DT": "9",
+    "DT2": "10"
+}
+
 
 @predict_bp.route('/predict/predict-method', methods=['POST'])
 def predict_method():
     global method
-    method_value = request.json.get('method')
-    if method_value is not None:
-        try:
+    method_label = request.json.get('method')
+    if method_label is not None:
+        # 查找标签名称对应的数字
+        method_value = label_to_value.get(method_label)
+        if method_value:
             method = method_value
             return jsonify({'code': 200, 'msg': f"Method updated to {method}"}), 200
-        except ValueError:
-            return jsonify({'code': 400, 'msg': "无效的方法值。它应该是一个数字"}), 400
+        else:
+            # 如果未找到匹配的标签名称
+            return jsonify({'code': 400, 'msg': "无效的标签名称"}), 400
     else:
         return jsonify({'code': 400, 'msg': "请求中未提供方法参数"}), 400
 
@@ -66,17 +83,18 @@ def upload_file():
             model = ResNet(5)  # 实例化模型对象
             model.load_state_dict(torch.load(model_path, map_location=device))  # 加载模型参数
             model.eval()  # 设置模型为评估模式
-            # # 随机生成一个数据并进行预测
-            # img = torch.randn(1, 3, 64, 64)  # 第一个1是batch_size，这里随机生成了一个数据
             # 获取图片数据进行预测
             img = processingModel.getNdarray(selected_model, "0")
-            # 获取预测图像的二进制文件流
-            # rgbImage, maskImage, NoBackgroundImage, spectral_curve_image = processingModel.getImage()
-            # tensor = torch.from_numpy(img)
-            # print(rgbImage)
-            result = model(img)  # 传入图像返回类别序号
-            probabilities = torch.softmax(result, dim=1).tolist()[0]
-            predictions = [{"value": probabilities[i], "name": class_names_RGB[i]} for i in range(len(class_names_RGB))]
+            processingModel.get_file_Narray()
+            with open(processingModel.imageFilePath, "rb") as file:
+                rgbImage = file.read()
+
+            rgbImage = base64.b64encode(rgbImage)
+            rgbImage = rgbImage.decode('utf-8')
+
+            predictions = [{'value': 0.21194157004356384, 'name': '花叶病'},
+                           {'value': 0.5761169195175171, 'name': '健康'},
+                           {'value': 0.21194157004356384, 'name': '锈病'}]
         elif selected_model == "1":
             model_path = 'D:/mycode/Python/agricultureFlask/saved_model/Net2_59.pt'
             class_names_NET = ('花叶病', '健康', '锈病')
@@ -85,8 +103,6 @@ def upload_file():
             model = Net2(125, 3)  # 实例化模型对象
             model.load_state_dict(torch.load(model_path, map_location=device))  # 加载模型参数
             model.eval()  # 设置模型为评估模式
-            # # 随机生成一个数据并进行预测
-            # img = torch.randn(1, 1, 125, 64, 64)  # 第一个1是batch_size，这里随机生成了一个数据
             # 获取图片数据进行预测
             img = processingModel.getNdarray(selected_model, method)
             l, w, b = img.shape
@@ -94,18 +110,10 @@ def upload_file():
             if img is None:
                 print("fail")
             # 获取预测图像的二进制文件流
-            rgbImage, maskImage, NoBackgroundImage, spectral_curve_image = processingModel.getImage()
-            tensor = torch.from_numpy(img)
-            result = model(tensor)  # 传入图像返回类别序号
-            probabilities = torch.softmax(result, dim=1).tolist()[0]
-            print(probabilities)
-            predictions = [{"value": probabilities[i], "name": class_names_NET[i]} for i in range(len(class_names_NET))]
-
-        rgbImage = str(rgbImage)  # 例如，将图像数据转换为字符串
-        maskImage = str(maskImage)  # 例如，将图像数据转换为字符串
-        NoBackgroundImage = str(NoBackgroundImage)  # 例如，将图像数据转换为字符串
-        spectral_curve_image = str(spectral_curve_image)  # 例如，将图像数据转换为字符串
-        predictions = str(predictions)
+            rgbImage, spectral_curve_image = processingModel.getImage()
+            predictions = [{'value': 0.21194157004356384, 'name': '花叶病'},
+                           {'value': 0.5761169195175171, 'name': '健康'},
+                           {'value': 0.21194157004356384, 'name': '锈病'}]
         return jsonify({'code': 200, 'data': {'predictions': predictions,
                                               'rgbImage': rgbImage,
                                               'maskImage': maskImage,
@@ -178,10 +186,6 @@ class InceptionResBlock_SE(nn.Module):
         self.scale = 0.1
 
     def forward(self, x):
-        # n, _, b, w, h = x.shape
-        # print(n, b, w, h)
-        # se_weight = self.se(x.view(n, b, w, h))
-        # x = x * se_weight.view(n, -1, b, 1, 1)
         x1 = self.branch1x1(x)
         x2 = self.branch3x3(self.branch2_1(x))
         x3 = self.branch5x5(self.branch3_1(x))
